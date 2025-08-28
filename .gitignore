@@ -1,4 +1,5 @@
 .python-version
+.pytest_cache/
 .venv
 .venv/
 .git
@@ -13,3 +14,4 @@ env
 env/
 venv
 venv/
+*.pyc
