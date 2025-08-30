@@ -1,34 +1,78 @@
+from enum import StrEnum
+from typing import Union
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, DateTime, Numeric, Boolean,
-    CheckConstraint, Text, UniqueConstraint, Index
+    CheckConstraint, Text, UniqueConstraint, Index, Table, text
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
+from sqlalchemy import Numeric, ARRAY
+from sqlalchemy.ext.mutable import MutableList
 
 from db.config import Base
 from exceptions import OperationDeniedError
 
 
+class Permission(StrEnum):
+    LIST_USERS = "list_users"
+    VIEW_USER = "view_user"
+    CREATE_USER = "create_user"
+    UPDATE_USER = "update_user"
+    DELETE_USER = "delete_user"
+    VIEW_REPORTS = "view_reports"
+    LIST_ROLES = "list_roles"
+    VIEW_ROLE = "view_role"
+    CREATE_ROLE = "create_role"
+    UPDATE_ROLE = "update_role"
+    DELETE_ROLE = "delete_role"
+    ASSIGN_ROLE = "assign_role"
+    LIST_CLIENTS = "list_clients"
+    VIEW_CLIENT = "view_client"
+    CREATE_CLIENT = "create_client"
+    UPDATE_CLIENT = "update_client"
+    DELETE_CLIENT = "delete_client"
+    LIST_CONTRACTS = "list_contracts"
+    VIEW_CONTRACT = "view_contract"
+    CREATE_CONTRACT = "create_contract"
+    UPDATE_CONTRACT = "update_contract"
+    DELETE_CONTRACT = "delete_contract"
+    LIST_EVENTS = "list_events"
+    VIEW_EVENT = "view_event"
+    CREATE_EVENT = "create_event"
+    UPDATE_EVENT = "update_event"
+    DELETE_EVENT = "delete_event"
+
+
+PermLike = Union[str, Permission]
+
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class Role(Base):
     __tablename__ = "roles"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(32), unique=True, nullable=False)
-    users = relationship("User", back_populates="role", passive_deletes=True)
 
-    def __repr__(self):
-        return f"<Role (id={self.id}), \"{self.name}\">"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
 
-    def __str__(self):
-        return self.name
-    
-    def get_users_count(self):
-        return len(self.users)
-    
-    def has_users(self):
-        return bool(self.users)
-    
-    def get_active_users(self):
-        return [user for user in self.users if user.is_active]
+    # canonical permission set for this role
+    permissions: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(ARRAY(String)),
+        default=list,
+        server_default=text("'{}'::text[]"),
+        nullable=False,
+    )
+
+    users: Mapped[list["User"]] = relationship(
+        back_populates="roles", secondary=user_roles, passive_deletes=True
+    )
+
+    def __repr__(self) -> str:
+        return f"<Role id={self.id} name={self.name!r} perms={self.permissions}>"
 
 
 class User(Base):
@@ -37,13 +81,12 @@ class User(Base):
     username = Column(String(64), unique=True, nullable=False, index=True)
     full_name = Column(String(128), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
-
-    # TODO: Add password hashing
     password_hash = Column(String(255), nullable=False)
 
     role_id = Column(
         Integer,
-        ForeignKey("roles.id", ondelete="RESTRICT")
+        ForeignKey("roles.id", ondelete="RESTRICT"),
+        nullable=False
     )
     role = relationship("Role", back_populates="users")
 
@@ -58,9 +101,8 @@ class User(Base):
     supported_events = relationship("Event", back_populates="support_contact", passive_deletes=True)
 
     def __repr__(self):
-        if self.role.name:
-            return f"<User {self.role.name} (id={self.id}): {self.username}>"
-        return f"<User (id={self.id}): {self.full_name}>"
+        role_name = self.role.name if getattr(self, "role", None) else "Unknown"
+        return f"<User {role_name} (id={self.id}): {self.username}>"
     
     def __str__(self):
         return self.full_name
@@ -101,7 +143,8 @@ class Client(Base):
                f"company_id={self.company_id}>"
     
     def __str__(self):
-        return f"{self.full_name} ({self.company.name})"
+        company_name = self.company.name if getattr(self, "company", None) else "No company"
+        return f"{self.full_name} ({company_name})"
 
 
 class Contract(Base):
@@ -116,13 +159,18 @@ class Contract(Base):
 
     total_amount = Column(Numeric(12, 2), nullable=False)
     remaining_amount = Column(Numeric(12, 2), nullable=False)
+
     is_signed = Column(Boolean, nullable=False, server_default="false")
     is_fully_paid = Column(Boolean, nullable=False, server_default="false")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    event = relationship("Event", back_populates="contract", uselist=False, passive_deletes=True)
+    event = relationship("Event", back_populates="contract", uselist=True, passive_deletes=True)
+
+    __table_args__ = (
+        CheckConstraint("remaining_amount >= 0"),
+    )
 
     def __repr__(self):
         return f"<Contract (id={self.id}): " \
@@ -133,32 +181,15 @@ class Contract(Base):
         return f"{self.client.full_name} - {self.total_amount}€"
 
 
-class Venue(Base):
-    __tablename__ = "venues"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    full_address = Column(String(256), unique=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
-    events = relationship("Event", back_populates="venue", passive_deletes=True)
-
-    def __repr__(self):
-        return f"<Venue (id={self.id}): {self.full_address}>"
-    
-    def __str__(self):
-        return self.full_address
-
-
 class Event(Base):
     __tablename__ = "events"
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(128), nullable=False)
 
-    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False, unique=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
     contract = relationship("Contract", back_populates="event")
 
-    venue_id = Column(Integer, ForeignKey("venues.id", ondelete="SET NULL"), nullable=True)
-    venue = relationship("Venue", back_populates="events")
+    full_address = Column(String(256), nullable=False)
 
     support_contact_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     support_contact = relationship("User", back_populates="supported_events")
@@ -181,7 +212,6 @@ class Event(Base):
     def __repr__(self):
         return f"<Event (id={self.id} " \
                f"contract_id={self.contract_id} " \
-               f"venue_id={self.venue_id} " \
                f"support_contact_id={self.support_contact_id})>"
     
     def __str__(self):
