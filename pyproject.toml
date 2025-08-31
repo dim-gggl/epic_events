@@ -1,7 +1,7 @@
 [project]
 name = "epic-events"
 version = "0.1.0"
-description = "A C.R.M. for the company Epic Events (with a C.L.I.)"
+description = "A C.L.I. C.R.M. for the company Epic Events"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

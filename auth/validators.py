@@ -1,4 +1,7 @@
 from email_validator import validate_email, EmailNotValidError
+from db.config import Session
+from crm.models import User
+from sqlalchemy import select
 
 
 def is_valid_email(value: str) -> bool:
@@ -11,16 +14,17 @@ def is_valid_email(value: str) -> bool:
 
 def _validate_username_length(username: str) -> bool:
     """Validate that a username is between 5 and 64 characters long."""
-    return bool(len(username) >= 5 and len(username) <= 64)
+    return len(username) >= 5 and len(username) <= 64
 
-def _validate_username_uniqueness(username: str, usernames: list[str]) -> bool:
+def _validate_username_uniqueness(username: str) -> bool:
     """Validate that a username is not already in the list."""
-    return username not in usernames
+    with Session() as session:
+        return bool(not session.scalar(select(User).where(User.username == username)))
 
-def is_valid_username(username: str, usernames: list[str]) -> bool:
+def is_valid_username(username: str) -> bool:
     """Validate that a username is valid and not already in the list."""
     return bool(_validate_username_length(username) and \
-        _validate_username_uniqueness(username, usernames))
+        _validate_username_uniqueness(username))
 
 def _validate_password_length(password: str) -> bool:
     """Validate that a password is between 8 and 128 characters long."""

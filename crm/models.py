@@ -19,7 +19,6 @@ class Permission(StrEnum):
     CREATE_USER = "create_user"
     UPDATE_USER = "update_user"
     DELETE_USER = "delete_user"
-    VIEW_REPORTS = "view_reports"
     LIST_ROLES = "list_roles"
     VIEW_ROLE = "view_role"
     CREATE_ROLE = "create_role"
@@ -45,21 +44,12 @@ class Permission(StrEnum):
 
 PermLike = Union[str, Permission]
 
-user_roles = Table(
-    "user_roles",
-    Base.metadata,
-    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    Column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
-)
-
 
 class Role(Base):
-    __tablename__ = "roles"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
-
-    # canonical permission set for this role
+    __tablename__ = "role"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(32), unique=True, nullable=False)
+    users = relationship("User", back_populates="role", passive_deletes=True)
     permissions: Mapped[list[str]] = mapped_column(
         MutableList.as_mutable(ARRAY(String)),
         default=list,
@@ -67,16 +57,27 @@ class Role(Base):
         nullable=False,
     )
 
-    users: Mapped[list["User"]] = relationship(
-        back_populates="roles", secondary=user_roles, passive_deletes=True
-    )
+    def __repr__(self):
+        return f"<Role (id={self.id}), \"{self.name}\">"
 
-    def __repr__(self) -> str:
-        return f"<Role id={self.id} name={self.name!r} perms={self.permissions}>"
+    def __str__(self):
+        return self.name
+    
+    def get_users_count(self):
+        return len(self.users)
+    
+    def has_users(self):
+        return bool(self.users)
+    
+    def get_active_users(self):
+        return [user for user in self.users if user.is_active]
+    
+    def can_(self, permission: Permission) -> bool:
+        return permission in self.permissions
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(64), unique=True, nullable=False, index=True)
     full_name = Column(String(128), nullable=False)
@@ -85,7 +86,7 @@ class User(Base):
 
     role_id = Column(
         Integer,
-        ForeignKey("roles.id", ondelete="RESTRICT"),
+        ForeignKey("role.id", ondelete="RESTRICT"),
         nullable=False
     )
     role = relationship("Role", back_populates="users")
@@ -109,7 +110,7 @@ class User(Base):
 
 
 class Company(Base):
-    __tablename__ = "companies"
+    __tablename__ = "company"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(128), unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -119,16 +120,16 @@ class Company(Base):
 
 
 class Client(Base):
-    __tablename__ = "clients"
+    __tablename__ = "client"
     id = Column(Integer, primary_key=True, autoincrement=True)
     full_name = Column(String(128), nullable=False)
     email = Column(String(128), unique=True, nullable=False, index=True)
     phone = Column(String(32), nullable=True)
 
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
+    company_id = Column(Integer, ForeignKey("company.id", ondelete="SET NULL"), nullable=True)
     company = relationship("Company", back_populates="clients")
 
-    commercial_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    commercial_id = Column(Integer, ForeignKey("user.id", ondelete="RESTRICT"), nullable=False)
     commercial = relationship("User", back_populates="managed_clients")
 
     first_contact_date = Column(DateTime(timezone=True), nullable=False)
@@ -148,13 +149,13 @@ class Client(Base):
 
 
 class Contract(Base):
-    __tablename__ = "contracts"
+    __tablename__ = "contract"
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="RESTRICT"), nullable=False)
+    client_id = Column(Integer, ForeignKey("client.id", ondelete="RESTRICT"), nullable=False)
     client = relationship("Client", backref="contracts")
 
-    commercial_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    commercial_id = Column(Integer, ForeignKey("user.id", ondelete="RESTRICT"), nullable=False)
     commercial = relationship("User", back_populates="managed_contracts")
 
     total_amount = Column(Numeric(12, 2), nullable=False)
@@ -166,7 +167,8 @@ class Contract(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    event = relationship("Event", back_populates="contract", uselist=True, passive_deletes=True)
+    events = relationship("Event", back_populates="contract", uselist=True, passive_deletes=True)
+    
 
     __table_args__ = (
         CheckConstraint("remaining_amount >= 0"),
@@ -182,16 +184,16 @@ class Contract(Base):
 
 
 class Event(Base):
-    __tablename__ = "events"
+    __tablename__ = "event"
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(128), nullable=False)
 
-    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
-    contract = relationship("Contract", back_populates="event")
+    contract_id = Column(Integer, ForeignKey("contract.id", ondelete="CASCADE"), nullable=False)
+    contract = relationship("Contract", back_populates="events")
 
     full_address = Column(String(256), nullable=False)
 
-    support_contact_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    support_contact_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
     support_contact = relationship("User", back_populates="supported_events")
 
     start_date = Column(DateTime(timezone=True), nullable=False)
