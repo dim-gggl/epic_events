@@ -1,0 +1,19 @@
+import sentry_sdk
+
+
+sentry_sdk.init(
+    dsn="https://0c628a483b300bbe8afe85f6811a8926@o4509950873174016.ingest.de.sentry.io/4509950875140176",
+    max_breadcrumbs=50,
+    debug=True,
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    # Add request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+    # By default the SDK will try to use the SENTRY_RELEASE
+    # environment variable, or infer a git commit
+    # SHA as release, however you may want to set
+    # something more human-readable.
+    # release="myapp@1.0.0",
+)
