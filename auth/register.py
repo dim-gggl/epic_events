@@ -1,13 +1,16 @@
 import bcrypt
-import jwt
 
 from .jwt.verify_token import verify_access_token
-from .jwt.config import conn, cur
+from db.config import Session
+from crm.models import User
 from exceptions import InvalidTokenError, OperationDeniedError
-from .hashing import hash_password
+from crm.controllers import MainController as controller
+from crm.views.views import MainView as view
 
+controller = controller()
+view = view()
 
-def create_user(access_token: str, 
+def create_user(access_token_payload: dict, 
                 username: str, 
                 full_name: str, 
                 email: str, 
@@ -17,29 +20,50 @@ def create_user(access_token: str,
     Create a new user in the database.
 
     Args:
-        access_token: The access token of the current user.
-        Must be a manager, otherwise an OperationDeniedError 
-        is raised.
+        access_token_payload: Decoded access token payload of the current user.
+        Must contain a manager role; otherwise the operation is denied.
         username: The username of the new user.
         full_name: The full name of the new user.
         email: The email of the new user.
         password: The password of the new user.
         role_id: The role id of the new user.
     """
-    # Verify the access token and check if the query comes from
-    # a manager
-    payload = verify_access_token(access_token)
-    if payload is None:
-        raise InvalidTokenError()
-    if payload["role_id"] != 1:
-        raise OperationDeniedError()
+    if access_token_payload is None:
+        view.wrong_message("OPERATION DENIED: Invalid access token.")
+        return
+    # Normalize role_id to int for comparison
+    role = access_token_payload.get("role_id")
+    try:
+        role = int(role)
+    except (TypeError, ValueError):
+        role = None
+    if role != 1:
+        view.wrong_message("OPERATION DENIED: You are not authorized to create a user.")
+        return
+    if not username:
+        username = controller.get_username()
+    if not full_name:
+        full_name = controller.get_full_name()
+    if not email:
+        email = controller.get_email()
+    if not password:
+        password = controller.get_password()
+    if not role_id:
+        role_id = controller.get_role_id()
 
-    password_hash = hash_password(password)
+    # Hash password with bcrypt and keep bytes
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-    # Insert the user in the database
-    cur.execute(
-        "INSERT INTO users (username, full_name, email, password_hash, role_id)"
-        f" VALUES ({username}, {full_name}, {email}, {password_hash}, {role_id})"
-    )
-    conn.commit()
-    print(f"✅ User '{username}' registered successfully.")
+    # Use SQLAlchemy ORM instead of raw SQL
+    with Session() as session:
+        user = User(
+            username=username,
+            full_name=full_name,
+            email=email,
+            password_hash=password_hash.decode('utf-8'),
+            role_id=role_id
+        )
+        session.add(user)
+        session.commit()
+    
+    view.success_message(f"User '{username}' registered successfully.")

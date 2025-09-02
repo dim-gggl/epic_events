@@ -72,12 +72,13 @@ class Role(Base):
     def get_active_users(self):
         return [user for user in self.users if user.is_active]
     
-    def can_(self, permission: Permission) -> bool:
-        return permission in self.permissions
+    def can_(self, permission: PermLike) -> bool:
+        perm_value = permission.value if isinstance(permission, Permission) else permission
+        return perm_value in self.permissions
 
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(64), unique=True, nullable=False, index=True)
     full_name = Column(String(128), nullable=False)
@@ -100,6 +101,8 @@ class User(Base):
     managed_clients = relationship("Client", back_populates="commercial", passive_deletes=True)
     managed_contracts = relationship("Contract", back_populates="commercial", passive_deletes=True)
     supported_events = relationship("Event", back_populates="support_contact", passive_deletes=True)
+
+    refresh_token_hash = Column(String(255), nullable=True)
 
     def __repr__(self):
         role_name = self.role.name if getattr(self, "role", None) else "Unknown"
@@ -129,7 +132,7 @@ class Client(Base):
     company_id = Column(Integer, ForeignKey("company.id", ondelete="SET NULL"), nullable=True)
     company = relationship("Company", back_populates="clients")
 
-    commercial_id = Column(Integer, ForeignKey("user.id", ondelete="RESTRICT"), nullable=False)
+    commercial_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     commercial = relationship("User", back_populates="managed_clients")
 
     first_contact_date = Column(DateTime(timezone=True), nullable=False)
@@ -155,7 +158,7 @@ class Contract(Base):
     client_id = Column(Integer, ForeignKey("client.id", ondelete="RESTRICT"), nullable=False)
     client = relationship("Client", backref="contracts")
 
-    commercial_id = Column(Integer, ForeignKey("user.id", ondelete="RESTRICT"), nullable=False)
+    commercial_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     commercial = relationship("User", back_populates="managed_contracts")
 
     total_amount = Column(Numeric(12, 2), nullable=False)
@@ -193,7 +196,7 @@ class Event(Base):
 
     full_address = Column(String(256), nullable=False)
 
-    support_contact_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
+    support_contact_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     support_contact = relationship("User", back_populates="supported_events")
 
     start_date = Column(DateTime(timezone=True), nullable=False)

@@ -1,6 +1,7 @@
 import os
 import sys
 import getpass
+import ctypes
 from typing import Optional
 
 from sqlalchemy import select
@@ -9,6 +10,8 @@ from db.config import engine, Session
 from auth.validators import is_valid_username, is_valid_email, is_valid_password
 from auth.hashing import hash_password
 from crm.models import User, Role
+from auth.utils import _prompt_password
+from crm.permissions import DEFAULT_ROLE_PERMISSIONS
 
 
 def _ensure_root() -> None:
@@ -19,7 +22,6 @@ def _ensure_root() -> None:
     """
     if os.name == "nt":
         try:
-            import ctypes  # lazy import
             is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
         except Exception:
             is_admin = False
@@ -32,22 +34,9 @@ def _ensure_root() -> None:
             sys.exit(1)
 
 
-def _prompt_password(confirm: bool = True) -> str:
-    """Prompt for a password securely (no echo)."""
-    pwd = getpass.getpass("New password: ").strip()
-    if not is_valid_password(pwd):
-        print("Password should be at least 8 characters long\n"
-              "and contain at least one uppercase letter, one\n"
-              "lowercase letter and one digit.")
-        return _prompt_password(confirm)
-    if confirm:
-        rep = getpass.getpass("Confirm password: ").strip()
-        if pwd != rep:
-            print("Passwords do not match.")
-            sys.exit(1)
-        return pwd
-
-def init_manager(username: Optional[str]=None, full_name: Optional[str]=None, email: Optional[str]=None) -> None:
+def init_manager(username: Optional[str]=None, 
+                full_name: Optional[str]=None, 
+                email: Optional[str]=None) -> None:
     """Create a 'management' user. Only callable as root/sudo."""
     _ensure_root()
 
@@ -94,7 +83,7 @@ def init_manager(username: Optional[str]=None, full_name: Optional[str]=None, em
         # Ensure 'management' role exists
         role = session.scalar(select(Role).where(Role.name == "management"))
         if not role:
-            role = Role(name="management")
+            role = Role(name="management", permissions=DEFAULT_ROLE_PERMISSIONS.get("management", []))
             session.add(role)
             session.flush()  # get role.id
 

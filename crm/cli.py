@@ -1,0 +1,280 @@
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.columns import Columns
+from rich.table import Table
+from rich.text import Text
+from rich.padding import Padding
+from rich.layout import Layout
+from rich import box
+from rich_argparse import RichHelpFormatter
+
+from observability import init_sentry
+from db.create_tables import init_db
+from db.create_manager import init_manager
+from auth.login import login
+from auth.register import create_user
+from auth.jwt.verify_token import verify_access_token
+from exceptions import InvalidUsernameError, InvalidPasswordError
+from crm.views.views import MainView
+from crm.views.config import epic_style, logo_style
+from crm.controllers import MainController as controller
+controller = controller()
+
+LOGO_PATH = Path("crm/views/logo.txt")
+
+console = Console()
+print = console.print
+input = console.input
+
+
+init_sentry()
+view = MainView()
+
+def build_logo_text() -> Text:
+    """
+    Build the stylized logo Text for help rendering.
+    Keep it non-interactive (no input), left-aligned.
+    """
+    text = LOGO_PATH.read_text(encoding="utf-8")
+    t = Text(text, no_wrap=True)
+    t.stylize(epic_style, 0, 145)
+    t.stylize(logo_style, 145, 147)
+    t.stylize(epic_style, 147, 176)
+    t.stylize(logo_style, 176, 191)
+    t.stylize(epic_style, 191, 194)
+    t.stylize(logo_style, 194, 221)
+    t.stylize(epic_style, 221, 225)
+    t.stylize(logo_style, 225, -1)
+    return t
+
+def render_help_with_logo(parser: argparse.ArgumentParser) -> None:
+    """
+    Render help in two columns using Rich:
+    - Left: Epic Events logo (styled)
+    - Right: argparse help text for the provided parser
+    """
+    help_str = parser.format_help()
+    logo = build_logo_text()
+
+    # Compute a reasonable fixed width for the logo column
+    try:
+        raw_logo = LOGO_PATH.read_text(encoding="utf-8")
+        max_logo_width = max((len(line) for line in raw_logo.splitlines()), default=40)
+    except Exception:
+        max_logo_width = 40
+
+    # Use a Table to avoid vertical cropping; it will render full height
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(no_wrap=True, width=max_logo_width + 2)
+    grid.add_column(ratio=1)
+
+    left = Padding(logo, (0, 1))
+    right = Panel(
+        Text.from_ansi(help_str),
+        box=box.ROUNDED,
+        border_style=epic_style,
+        padding=(1, 2),
+        title="HELP",
+        title_align="left",
+    )
+
+    grid.add_row(left, right)
+    console.print(grid)
+
+class SideBySideHelpAction(argparse._HelpAction):
+    """
+    Replace argparse default help to render a Rich 2-column view:
+    - Left: logo (fixed width)
+    - Right: help text
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        render_help_with_logo(parser)
+        parser.exit()
+
+def add_side_by_side_help(parser: argparse.ArgumentParser):
+    """Disable default help and add our side-by-side help action."""
+    # Remove default -h/--help if present
+    for a in list(parser._actions):
+        if isinstance(a, argparse._HelpAction):
+            parser._actions.remove(a)
+            for opt in a.option_strings:
+                if opt in parser._option_string_actions:
+                    del parser._option_string_actions[opt]
+    # Add our custom help
+    parser.add_argument("-h", "--help", action=SideBySideHelpAction, help="Show this help.")
+
+
+class CustomRichFormatter(RichHelpFormatter):
+    """Tweak styles for headings, options and metavars."""
+    # You can adjust these styles to match your brand/theme
+    styles = {
+        "argparse.prog": "bold orange_red1",
+        "argparse.text": "",
+        "argparse.help": "dim",
+        "argparse.groups": "bold bright_green",
+        "argparse.heading": "bold orange_red1",
+        "argparse.metavar": "green",
+        "argparse.syntax": "bright_yellow",
+        "argparse.usage": "bold bright_white",
+    }
+    # Wider columns before wrapping the help text
+    max_help_position = 32
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="epic-events",
+        description="[bold orange_red1]Epic Events CLI[/] – operations & user management.",
+        epilog="[dim bright_cyan]Tips:[/] use [bold]epic-events help CMD[/] for detailed help on a subcommand.",
+        formatter_class=CustomRichFormatter,
+        add_help=False,  # take control over -h/--help text
+        usage="%(prog)s [GLOBAL OPTIONS] CMD [ARGS]"
+    )
+    add_side_by_side_help(parser)
+
+    global_grp = parser.add_argument_group("Global Options")
+
+    subparsers = parser.add_subparsers(
+        title="Commands",
+        dest="command",
+        metavar="CMD",
+        description="Available operational commands.",
+    )
+    subparsers.required = True
+
+    # init_db
+    init_parser = subparsers.add_parser(
+        "init-db",
+        help="Initialize the database, creating the tables and the necessary data",
+        description="Initialize all database structures and seed essentials.",
+        formatter_class=CustomRichFormatter,
+        aliases=["init_db", "initdb", "init"],
+        add_help=False
+    )
+    add_side_by_side_help(init_parser)
+
+    # init_manager
+    create_manager_parser = subparsers.add_parser(
+        "init-manager",
+        help="Create a new manager user (requires root privileges)",
+        description="Create a management user with elevated permissions.",
+        formatter_class=CustomRichFormatter,
+        aliases=["create_manager", "createsuperuser", "superuser", "createmanager", "create-manager", "init_manager", "initmanager"],
+        add_help=False
+    )
+
+    mgr_grp = create_manager_parser.add_argument_group("Manager Identity")
+    mgr_grp.add_argument("-u", "--username", required=False, help="Username for the manager user")
+    mgr_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the manager user")
+    mgr_grp.add_argument("-e", "--email", required=False, help="Email for the manager user")
+    add_side_by_side_help(create_manager_parser)
+
+    # login
+    login_parser = subparsers.add_parser(
+        "login",
+        help="Login to the CRM app",
+        description="Authenticate to obtain a session or token.",
+        formatter_class=CustomRichFormatter,
+        aliases=["register", "authenticate", "auth"],
+        add_help=False
+    )
+    add_side_by_side_help(login_parser)
+
+    auth_grp = login_parser.add_argument_group("Credentials")
+    auth_grp.add_argument("-u", "--username", help="Login ID")
+    auth_grp.add_argument("-p", "--password", help="Password (optional)")
+    add_side_by_side_help(login_parser)
+
+    # create_user
+    create_user_parser = subparsers.add_parser(
+        "create-user",
+        help="Create a new user (management only)",
+        description="Create a user account; requires a management token.",
+        formatter_class=CustomRichFormatter,
+        aliases=["create_user", "createuser", "register-user", "new-user"],
+        add_help=False
+    )
+    add_side_by_side_help(create_user_parser)
+    sec_grp = create_user_parser.add_argument_group("Security")
+    sec_grp.add_argument("-t", "--token", help="Access token with management role", required=True)
+
+    ident_grp = create_user_parser.add_argument_group("Identity")
+    ident_grp.add_argument("-u", "--username", help="Username for the new user")
+    ident_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the new user")
+    ident_grp.add_argument("-e", "--email", help="Email of the new user")
+    ident_grp.add_argument("-p", "--password", help="Password (optional)")
+    ident_grp.add_argument("-r", "--role-id", type=int, help="Role ID for the new user (1 for Management, 2 for sales or commercial, 3 for support)", default=2)
+    add_side_by_side_help(create_user_parser)
+
+    # Sous-commande "help" pour afficher l'aide d'une commande spécifique
+    help_parser = subparsers.add_parser(
+        "help",
+        help="Show help for a specific command",
+        description="Usage: epic-events help [COMMAND]",
+        formatter_class=CustomRichFormatter,
+        aliases=["help", "h"],
+        add_help=False
+    )
+    help_parser.add_argument("topic", nargs="?", help="Command to show help for")
+    add_side_by_side_help(help_parser)
+    
+    return parser
+
+def epic_events_crm(argv=None):
+    parser = build_parser()
+    args, unknown = parser.parse_known_args(argv)
+
+    if args.command == "help":
+        sub = args.topic
+        if not sub:
+            render_help_with_logo(parser)
+            return
+        sp = parser._subparsers._group_actions[0].choices.get(sub)
+        if sp is None:
+            print(f"Unknown command: {sub}\n")
+            render_help_with_logo(parser)
+            return
+        render_help_with_logo(sp)
+        return
+
+    match args.command:
+        case "init-db" | "init_db" | "initdb" | "init":
+            init_db()
+
+        case "init-manager" | "init_manager" | "create_manager" | "createsuperuser" \
+             | "superuser" | "createmanager" | "initmanager":
+            init_manager(getattr(args, 'username', None),
+                         getattr(args, "full_name", None),
+                         getattr(args, 'email', None))
+
+        case "login" | "register" | "authenticate" | "auth":
+            try:
+                username = getattr(args, "username", None) or input("Username: ").strip()
+                access_token, refresh_token, refresh_exp, refresh_hash = login(
+                    username,
+                    getattr(args, "password", None)
+                )
+            except (InvalidUsernameError, InvalidPasswordError) as e:
+                view.wrong_message(f"Connection failed: {e}")
+
+        case "create-user" | "create_user" | "createuser" | "register-user" | "new-user":
+            # Ensure tables exist and roles are seeded (idempotent)
+            init_db()
+            raw_token = getattr(args, "token", None)
+            access_token_payload = verify_access_token(raw_token) if raw_token else controller.get_access_token_payload()
+            # Early authorization check: block non-management before any prompts
+            username = getattr(args, "username", None) or controller.get_username()
+            full_name = getattr(args, "full_name", None) or controller.get_full_name()
+            email = getattr(args, "email", None) or controller.get_email()
+            password = getattr(args, "password", None) or controller.get_password()
+            role_id = getattr(args, "role_id", None) or controller.get_role_id()
+            create_user(access_token_payload, username, full_name, email, password, role_id)
+
+        case _:
+            render_help_with_logo(parser)

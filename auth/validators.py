@@ -4,6 +4,8 @@ from crm.models import User
 from sqlalchemy import select
 
 
+__all__ = ["is_valid_email", "is_valid_username", "is_valid_password"]
+
 def is_valid_email(value: str) -> bool:
     """Validate an email address"""
     try:
@@ -51,3 +53,7 @@ def is_valid_password(password: str) -> bool:
     """Validate that a password is valid."""
     return bool(_validate_password_length(password) and \
         _validate_password_complexity(password))
+
+def is_valid_role_id(role_id: int) -> bool:
+    """Validate that a role id is valid."""
+    return role_id >= 1 and role_id <= 3

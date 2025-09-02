@@ -4,13 +4,15 @@ import bcrypt
 import secrets
 
 from .config import (
-    ACCESS_TOKEN_LIFETIME_MINUTES, 
-    REFRESH_TOKEN_LIFETIME_DAYS, 
-    SECRET_KEY
+    ACCESS_TOKEN_LIFETIME_MINUTES,
+    REFRESH_TOKEN_LIFETIME_DAYS,
+    SECRET_KEY,
 )
 
-def generate_token(user_id: int, 
-                   user_role_id: int) -> tuple[str, str, datetime, bytes]:
+def generate_token(
+    user_id: int,
+    user_role_id: int,
+) -> tuple[str, str, datetime.datetime, bytes]:
     """
     Generate a new access token and refresh token for a user.
 

@@ -17,19 +17,16 @@ class OperationDeniedError(EpicEventsError):
     alert = "OPERATION DENIED"
 
 class InvalidUsernameError(EpicEventsError):
-    alert = "❌ Invalid username"
+    alert = "INVALID USERNAME"
 
 class InvalidUserIDError(EpicEventsError):
-    alert = "❌ Invalid user id"
+    alert = "INVALID USER ID"
 
 class InvalidPasswordError(EpicEventsError):
-    alert = "❌ Invalid password"
+    alert = "INVALID PASSWORD"
 
 class InvalidTokenError(EpicEventsError):
-    alert = "❌ Invalid token"
+    alert = "INVALID TOKEN"
 
 class ExpiredTokenError(EpicEventsError):
-    alert = "❌ Expired token"
-
-class NoRefreshTokenSavedError(EpicEventsError):
-    alert = "❌ No refresh token saved"
+    alert = "EXPIRED TOKEN"
