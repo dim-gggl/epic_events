@@ -65,7 +65,7 @@ This command can only be run with root privileges (`sudo` on Unix systems). It a
 
 **Usage:** 
 ```bash
-sudo epic-events init-manager -u [USERNAME] -m [FULL_NAME] -e [EMAIL]
+sudo epic-events init-manager -u [USERNAME] -n [FULL_NAME] -e [EMAIL]
 ```
 `sudo` will ask you for your root password, then epic-events will ask for the password of the manager user that is being created.
 
