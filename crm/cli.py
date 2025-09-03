@@ -212,7 +212,7 @@ def build_parser() -> argparse.ArgumentParser:
     ident_grp.add_argument("-r", "--role-id", type=int, help="Role ID for the new user (1 for Management, 2 for sales or commercial, 3 for support)", default=2)
     add_side_by_side_help(create_user_parser)
 
-    # Sous-commande "help" pour afficher l'aide d'une commande spécifique
+    # "help" subcommand to display help for a specific command
     help_parser = subparsers.add_parser(
         "help",
         help="Show help for a specific command",

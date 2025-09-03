@@ -10,15 +10,11 @@ from .config import (
     REFRESH_TOKEN_LIFETIME_DAYS,
     SECRET_KEY
 )
-from ..views.views import MainView as view
-from .verify_token import verify_access_token
-from ...exceptions import (
-    InvalidTokenError, 
-    OperationDeniedError, 
-    InvalidUserIDError, 
-    NoRefreshTokenSavedError, 
-    ExpiredTokenError
-)
+from crm.views.views import MainView as View
+from auth.jwt.verify_token import verify_access_token
+# Note: error feedback is provided via view.wrong_message; no exceptions are raised here
+
+view = View()
 
 
 def refresh_access_token(user_id: int, 
@@ -36,24 +32,29 @@ def refresh_access_token(user_id: int,
     """
     # Get the stored hash and expiration date for the user
     cur.execute(
-        f"SELECT refresh_token_hash FROM users WHERE id = {user_id}"
+        "SELECT refresh_token_hash, refresh_token_expiry FROM users WHERE id = %s",
+        (user_id,)
     )
     result = cur.fetchone()
     if result is None:
         view.wrong_message("INVALID USER ID")
+        return
     stored_hash, stored_exp = result
     if stored_hash is None or stored_exp is None:
         view.wrong_message("NO REFRESH TOKEN SAVED")
+        return
 
     # Check if the refresh token has expired
     if datetime.now(timezone.utc) > stored_exp:
-        view.wrong_messag("TOKEN EXPIRED")
+        view.wrong_message("TOKEN EXPIRED")
+        return
 
     # Check if the provided refresh token corresponds to the stored hash
     stored_hash_bytes = stored_hash.encode('utf-8')
     if not bcrypt.checkpw(provided_refresh.encode('utf-8'), 
                         stored_hash_bytes):
         view.wrong_message("INVALID TOKEN")
+        return
 
     # At this point, the refresh token is authenticated and valid
     # Generate a new access token
@@ -73,9 +74,8 @@ def refresh_access_token(user_id: int,
 
     # Update the database
     cur.execute(
-        f"UPDATE users SET refresh_token_hash = {new_refresh_hash.decode('utf-8')}, "
-        f"refresh_token_expiry = {new_refresh_exp} "
-        f"WHERE id = {user_id}"
+        "UPDATE users SET refresh_token_hash = %s, refresh_token_expiry = %s WHERE id = %s",
+        (new_refresh_hash.decode('utf-8'), new_refresh_exp, user_id)
     )
     conn.commit()
     return new_access, new_refresh_raw, new_refresh_exp, new_refresh_hash

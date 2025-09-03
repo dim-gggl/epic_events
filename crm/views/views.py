@@ -16,14 +16,14 @@ PRESS_ENTER_CENTERED = Align.center(Text("Press ENTER: ", style="orange_red1"))
 console = Console()
 clear = console.clear
 print = console.print
-input = console.input
+# input = console.input  # Commented out to use builtins.input directly
 
 rw = {
     1: "One example",
     2: "Two examples"
 }
 
-def menu(title, columns=2, rows=3, padding1=0, padding2=6, border_style="dim dark_white", rw=rw):
+def menu(title, columns=2, rows=3, padding1=0, padding2=6, border_style="dim white", rw=rw):
     result = Table.grid(padding=(padding1, padding2))
     count_c, count_r = 0, 0
     while count_c < columns and count_r < rows:
@@ -44,7 +44,7 @@ def header(title="C.R.M.", subtitle="1.0", content="EPIC EVENTS",
                         f"[dim]{datetime.utcnow().strftime('%d/%m/%Y')}[/]", justify="center"),
         border_style=border_style, 
         title=Text.from_markup(f"[{title_style}]{title}[/]"), 
-        subtitle=Text.from_markup(f"[{subtitle}]{subtitle}[/]"), 
+        subtitle=Text.from_markup(f"[dim]{subtitle}[/dim]"), 
         title_align=title_align,
         subtitle_align=subtitle_align
     )
@@ -65,7 +65,7 @@ def banner(content,
         text.append(content, style=style)
         text.append("\n")  
         text.append(content2, style=style2)
-        text.justify = justify  # Appliquer la justification au texte principal
+        text.justify = justify  # Apply justification to the main text
     else:
         text = Text(content, style=style, justify=justify)
         
@@ -139,9 +139,10 @@ class MainView:
 
     def display_message(self, message, style):
         clear()
-        print(Panel.fit(Text(message, style=style), padding=(0, 6)), justify="center")
-        print("\n\n\n")
-        input(PRESS_ENTER_CENTERED)
+        print(Panel.fit(Text(message, style=style, justify="center"), padding=(1, 6)), justify="center")
+        print("\n")
+        print(Panel.fit(Text("Press ENTER", style="orange_red1", justify="center"), padding=(0, 6)), justify="center")
+        input()
     
     def success_message(self, message):
         self.display_message(message, "bold bright_green")
@@ -173,7 +174,7 @@ class MainView:
             banner(
                     access_token, 
                     "bold italic dark_white", 
-                    "center",
+                    "left",
                     logo_style,
                     title="YOUR ACCESS TOKEN",
                     subtitle=None, 
@@ -185,7 +186,7 @@ class MainView:
             banner(
                     refresh_token, 
                     "bold italic dark_white", 
-                    "center",
+                    "left",
                     epic_style,
                     title="YOUR REFRESH TOKEN",
                     subtitle=None, 

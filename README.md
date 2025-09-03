@@ -42,3 +42,40 @@ python epic_events.py --help
 ```
 This is what you should see :
 ![](media/help_menu.svg)
+
+At this point, for more convenience, it's recommanded to :
+
+```bash
+alias epic-events="python epic_events.py"
+```
+
+This way it is possible to 
+
+```bash
+epic-events help
+```
+
+### The Commands
+
+#### `init-db`
+
+This is the first commande that should be launch after the installation. It initialises the database and sets up the necessary data required by the app to start running (it initiales the roles id permetting to create users and starting provifing them a role)
+
+#### `init-manager`
+
+This command can only be ran with root privileges (`sudo` on unix systems). It allows to create a user with the role of management, so, typically a user with the permission of creating other user profiles.
+
+USAGE : 
+```bash
+sudo epic-events init-manager -u [USERNAME] -m [FULL_NAME] -e [EMAIL]
+```
+`sudo` will ask you for your root password, then epic-events should ask for the password of the manager user that is currently creating.
+
+#### `create-user`
+
+This command requires to be connected to the CRM and to be a manager user. In order to make it work, it should receive as an argument an access token proving the role of the request user.
+
+USAGE : 
+```bash
+epic-events create-user -t [ACCESS_TOKEN] -u [USERNAME] -n [FULL_NAME] -e [EMAIL] -r [ROLE_ID]
+```
