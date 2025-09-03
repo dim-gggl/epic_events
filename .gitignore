@@ -16,4 +16,5 @@ venv
 venv/
 *.pyc
 *.dev/
-'.*.dev/',
+'.*.dev/'
+migrations/

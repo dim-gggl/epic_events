@@ -7,8 +7,10 @@ from rich.columns import Columns
 from rich.text import Text
 from datetime import datetime
 from rich.align import Align
+from rich import box
+from sqlalchemy import select
 
-
+from db.config import Session
 from crm.views.config import epic_style, logo_style
 from auth.validators import is_valid_password
 
@@ -36,8 +38,8 @@ def menu(title, columns=2, rows=3, padding1=0, padding2=6, border_style="dim whi
     return Panel(result, title=title, border_style=border_style)
 
 def header(title="C.R.M.", subtitle="1.0", content="EPIC EVENTS", 
-          title_style="bold orange_red1", subtitle_style="dim dark_white", 
-          content_style="bold orange_red1", border_style="dim white",
+          title_style=epic_style, subtitle_style="dim dark_white", 
+          content_style=epic_style, border_style="dim white",
           title_align="left", subtitle_align="right"):
     return Panel(
         Text.from_markup(f"[{content_style}]{content}[/]\n"
@@ -167,6 +169,28 @@ class MainView:
     
     def get_role_id(self) -> str:
         return input("Role ID: ")
+    
+    def get_phone(self) -> str:
+        return input("Phone number: ")
+    
+    def get_company_id(self) -> str:
+        return input("Company ID: ")
+    
+    def get_first_contact_date(self) -> str:
+        return input("First contact date (format: dd/mm/yyyy): ")
+    
+    def get_last_contact_date(self) -> str:
+        return input("Last contact date (format: dd/mm/yyyy): ")
+    
+    def get_client_data(self) -> tuple:
+        full_name = self.get_full_name()
+        email = self.get_email()
+        phone = self.get_phone()
+        company_id = self.get_company_id()
+        first_contact_date = self.get_first_contact_date()
+        last_contact_date = self.get_last_contact_date()
+        return (full_name, email, phone, company_id, first_contact_date, last_contact_date)
+            
 
     def display_login(self, access_token, refresh_token, refresh_exp):
         console.clear()
@@ -174,7 +198,7 @@ class MainView:
             banner(
                     access_token, 
                     "bold italic dark_white", 
-                    "left",
+                    "full",
                     logo_style,
                     title="YOUR ACCESS TOKEN",
                     subtitle=None, 
@@ -186,7 +210,7 @@ class MainView:
             banner(
                     refresh_token, 
                     "bold italic dark_white", 
-                    "left",
+                    "full",
                     epic_style,
                     title="YOUR REFRESH TOKEN",
                     subtitle=None, 
@@ -236,7 +260,64 @@ class MainView:
         if press_enter:
             print(press_enter_panel, justify="center")
             input()
+
+    def display_list_clients(self, clients):
+        clear()
+        print(banner(f"CLIENTS ({len(clients)})", epic_style, "center", logo_style))
         
+        for client in clients:
+            table = Table(title=Text(client.full_name.upper(), style=epic_style), box=box.ROUNDED, show_header=False)
+            table.add_column()
+            table.add_column()
+            table.add_row(Text("ID", style=epic_style), Text(str(client.id), style="italic bright_white"))
+            table.add_row(Text("Full Name", style=epic_style), Text(client.full_name, style="italic bright_white"))
+            table.add_row(Text("Commercial ID", style=epic_style), Text(str(client.commercial_id), style="italic bright_white"))
+            print(table, justify="center")
+        
+    def display_client_detail(self, client):
+        clear()
+        table = Table(title=Text(f"CLIENT ({client.id})", style=epic_style), box=box.ROUNDED, show_header=False)
+        table.add_column()
+        table.add_column()
+        table.add_row(Text("ID", style=epic_style), Text(str(client.id), style="italic bright_white"))
+        table.add_row(Text("Full Name", style=epic_style), Text(client.full_name, style="italic bright_white"))
+        table.add_row(Text("Email", style=epic_style), Text(client.email, style="italic bright_white"))
+        table.add_row(Text("Phone", style=epic_style), Text(client.phone, style="italic bright_white"))
+        table.add_row(Text("Company ID", style=epic_style), Text(str(client.company_id), style="italic bright_white"))
+        table.add_row(Text("Commercial ID", style=epic_style), Text(str(client.commercial_id), style="italic bright_white"))
+        table.add_row(Text("First Contact Date", style=epic_style), Text(client.first_contact_date.strftime("%d/%m/%Y"), style="italic bright_white"))
+        table.add_row(Text("Last Contact Date", style=epic_style), Text(client.last_contact_date.strftime("%d/%m/%Y") if client.last_contact_date else "N/A", style="italic bright_white"))
+        print(table, justify="center")
+    
+    def display_events(self, events):
+        clear()
+        table = Table(title=Text(f"EVENTS ({len(events)})", style=epic_style), box=box.ROUNDED, show_header=False)
+        table.add_column()
+        table.add_column()
+        for event in events:
+            table.add_row(Text("ID", style=epic_style), Text(str(event.id), style="italic bright_white"))
+            table.add_row(Text("Title", style=epic_style), Text(event.title, style="italic bright_white"))
+            table.add_row(Text("Full Address", style=epic_style), Text(event.full_address, style="italic bright_white"))
+            table.add_row(Text("Start Date", style=epic_style), Text(event.start_date.strftime("%d/%m/%Y"), style="italic bright_white"))
+            table.add_row(Text("End Date", style=epic_style), Text(event.end_date.strftime("%d/%m/%Y"), style="italic bright_white"))
+            table.add_row(Text("Participant Count", style=epic_style), Text(str(event.participant_count), style="italic bright_white"))
+            table.add_row(Text("Notes", style=epic_style), Text(event.notes, style="italic bright_white"))
+        print(table, justify="center")
+    
+    def display_event(self, event):
+        clear()
+        table = Table(title=Text(f"EVENT ({event.id})", style=epic_style), box=box.ROUNDED, show_header=False)
+        table.add_column()
+        table.add_column()
+        table.add_row(Text("ID", style=epic_style), Text(str(event.id), style="italic bright_white"))
+        table.add_row(Text("Title", style=epic_style), Text(event.title, style="italic bright_white"))
+        table.add_row(Text("Full Address", style=epic_style), Text(event.full_address, style="italic bright_white"))
+        table.add_row(Text("Start Date", style=epic_style), Text(event.start_date.strftime("%d/%m/%Y"), style="italic bright_white"))
+        table.add_row(Text("End Date", style=epic_style), Text(event.end_date.strftime("%d/%m/%Y"), style="italic bright_white"))
+        table.add_row(Text("Participant Count", style=epic_style), Text(str(event.participant_count), style="italic bright_white"))
+        table.add_row(Text("Notes", style=epic_style), Text(event.notes, style="italic bright_white"))
+        print(table, justify="center")
+
     def display_commands(commands):
         screen = Table.grid()
         screen.add_column()
@@ -244,6 +325,27 @@ class MainView:
         for com in commands:
             screen.add_row(f"{com}", f"{com.help}")
 
+    def display_details(self, obj):
+        clear()
+        
+    def display_details(self, access_token, obj_id, obj_class):
+        with Session() as session:
+            obj = session.scalars(select(obj_class).filter(obj_class.id == obj_id)).one_or_none()
+            if not obj:
+                self.wrong_message("OPERATION DENIED: Object not found.")
+                return
+            name = getattr(obj, "name", None)
+            if not name:
+                name = getattr(obj, "full_name", None)
+            if not name:
+                name = getattr(obj, "title", None)
+            print()
+            table = Table(title=Text(name.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
+            table.add_column()
+            table.add_column()
+            for key, value in obj.__dict__.items():
+                table.add_row(Text(key.capitalize(), style=logo_style), Text(str(value), style="italic bright_white"))
+            print(table, justify="full")
 if __name__ == "__main__":
     # view = MainView()
     # view.display_login("ACCESS", "REFRESH", "2025-09-22")

@@ -1,8 +1,18 @@
 import sentry_sdk
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+
+DSN = os.getenv("SENTRY_DSN")
+if not DSN:
+    print("SENTRY_DSN is not set")
+    
 
 
 sentry_sdk.init(
-    dsn="https://0c628a483b300bbe8afe85f6811a8926@o4509950873174016.ingest.de.sentry.io/4509950875140176",
+    dsn=DSN,
     max_breadcrumbs=50,
     debug=True,
     # Set traces_sample_rate to 1.0 to capture 100%

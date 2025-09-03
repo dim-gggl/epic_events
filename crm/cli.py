@@ -17,6 +17,7 @@ from rich_argparse import RichHelpFormatter
 from observability import init_sentry
 from db.create_tables import init_db
 from db.create_manager import init_manager
+from db.crud_client import create_client, list_clients
 from auth.login import login
 from auth.register import create_user
 from auth.jwt.verify_token import verify_access_token
@@ -24,6 +25,8 @@ from exceptions import InvalidUsernameError, InvalidPasswordError
 from crm.views.views import MainView
 from crm.views.config import epic_style, logo_style
 from crm.controllers import MainController as controller
+from crm.models import Client
+
 controller = controller()
 
 LOGO_PATH = Path("crm/views/logo.txt")
@@ -107,7 +110,7 @@ def add_side_by_side_help(parser: argparse.ArgumentParser):
                 if opt in parser._option_string_actions:
                     del parser._option_string_actions[opt]
     # Add our custom help
-    parser.add_argument("-h", "--help", action=SideBySideHelpAction, help="Show this help.")
+    parser.add_argument("-h", "--help", action=SideBySideHelpAction, help="Show this help message then exit.")
 
 
 class CustomRichFormatter(RichHelpFormatter):
@@ -210,7 +213,51 @@ def build_parser() -> argparse.ArgumentParser:
     ident_grp.add_argument("-e", "--email", help="Email of the new user")
     ident_grp.add_argument("-p", "--password", help="Password (optional)")
     ident_grp.add_argument("-r", "--role-id", type=int, help="Role ID for the new user (1 for Management, 2 for sales or commercial, 3 for support)", default=2)
-    add_side_by_side_help(create_user_parser)
+
+    # create_client
+    create_client_parser = subparsers.add_parser(
+        "create-client",
+        help="Create a new client (commercial users only)",
+        description="Create a new client; requires a commercial user token.",
+        formatter_class=CustomRichFormatter,
+        aliases=["create_client", "createclient", "new-client", "add-client"],
+        add_help=False
+    )
+    add_side_by_side_help(create_client_parser)
+    
+    client_sec_grp = create_client_parser.add_argument_group("Security")
+    client_sec_grp.add_argument("-t", "--token", help="Access token with commercial role", required=True)
+
+    # list_clients
+    list_clients_parser = subparsers.add_parser(
+        "list-clients",
+        help="List all clients or, optionally, only the clients assigned to the current commercial user",
+        description="List all clients or, optionally, only the clients assigned to the current commercial user",
+        formatter_class=CustomRichFormatter,
+        aliases=["list_clients", "listclients", "list-clients"],
+        add_help=False
+    )
+    add_side_by_side_help(list_clients_parser)
+
+    client_sec_grp = list_clients_parser.add_argument_group("Security")
+    client_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
+    client_sec_grp.add_argument("-f", "--filtered", help="Filter clients by commercial user", required=False, default=False)
+
+    # view_client
+    view_client_parser = subparsers.add_parser(
+        "view-client",
+        help="View a client",
+        description="View a client",
+        formatter_class=CustomRichFormatter,
+        aliases=["view_client", "viewclient", "view-client"],
+        add_help=False
+    )
+    add_side_by_side_help(view_client_parser)
+
+    client_sec_grp = view_client_parser.add_argument_group("Security")
+    client_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
+    client_sec_grp.add_argument("-I", "--client-id", help="Client ID", required=True)
+    
 
     # "help" subcommand to display help for a specific command
     help_parser = subparsers.add_parser(
@@ -265,9 +312,8 @@ def epic_events_crm(argv=None):
 
         case "create-user" | "create_user" | "createuser" | "register-user" | "new-user":
             # Ensure tables exist and roles are seeded (idempotent)
-            init_db()
-            raw_token = getattr(args, "token", None)
-            access_token_payload = verify_access_token(raw_token) if raw_token else controller.get_access_token_payload()
+            access_token = getattr(args, "token", None)
+            access_token_payload = verify_access_token(access_token) if access_token else controller.get_access_token_payload()
             # Early authorization check: block non-management before any prompts
             username = getattr(args, "username", None) or controller.get_username()
             full_name = getattr(args, "full_name", None) or controller.get_full_name()
@@ -276,5 +322,37 @@ def epic_events_crm(argv=None):
             role_id = getattr(args, "role_id", None) or controller.get_role_id()
             create_user(access_token_payload, username, full_name, email, password, role_id)
 
+        case "create-client" | "create_client" | "createclient" | "new-client" | "add-client":
+            # Ensure tables exist and roles are seeded (idempotent)
+            access_token = getattr(args, "token", None)
+            if not access_token:
+                view.wrong_message("Access token is required for creating a client.")
+                return
+            create_client(access_token)
+
+        case "list-clients" | "list_clients" | "listclients" | "list-clients":
+            # Ensure tables exist and roles are seeded (idempotent)
+            access_token = getattr(args, "token", None)
+            if not access_token:
+                view.wrong_message("Access token is required for listing clients.")
+                return
+            list_clients(access_token, getattr(args, "filtered", False))
+
+        case "view-client" | "view_client" | "show-client" | "client-details" | "showclient" | "read-client" | "detail-client":
+            access_token = getattr(args, "token", None)
+            if not access_token:
+                view.wrong_message("Access token is required for viewing a client.")
+                return
+            client_id = getattr(args, "client_id", None)
+            if not client_id:
+                view.wrong_message("Client ID is required for viewing their details.")
+                return
+            view.display_details(access_token, client_id, Client)
+
+
         case _:
             render_help_with_logo(parser)
+
+if __name__ == "__main__":
+    epic_events_crm()
+    lisplay_si<pl

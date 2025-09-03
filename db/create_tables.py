@@ -4,10 +4,6 @@ from crm.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
 
 
 def _seed_roles(session: Session) -> None:
-    """
-    Ensure default roles exist and their permissions are in sync with in-code defaults.
-    Creates roles in deterministic order defined by ORDERED_DEFAULT_ROLES.
-    """
     for role_name in ORDERED_DEFAULT_ROLES:
         perms = DEFAULT_ROLE_PERMISSIONS.get(role_name, [])
         role = session.query(Role).filter(Role.name == role_name).one_or_none()
@@ -15,10 +11,8 @@ def _seed_roles(session: Session) -> None:
             role = Role(name=role_name, permissions=perms)
             session.add(role)
         else:
-            # Keep permissions up to date
             role.permissions = perms
     session.flush()
-
 
 def init_db():
     session = Session()

@@ -26,18 +26,18 @@ def _ensure_root() -> None:
         except Exception:
             is_admin = False
         if not is_admin:
-            sys.stderr.write("This command must be run as Administrator.\n")
+            sys.stderr.write("This command must be run as root.\n")
             sys.exit(1)
     else:
         if os.geteuid() != 0:
-            sys.stderr.write("This command must be run with sudo (root).\n")
+            sys.stderr.write("This command must be run with root privileges.\n")
             sys.exit(1)
 
 
 def init_manager(username: Optional[str]=None, 
                 full_name: Optional[str]=None, 
                 email: Optional[str]=None) -> None:
-    """Create a 'management' user. Only callable as root/sudo."""
+    """Create a 'management' user. Only callable as root."""
     _ensure_root()
 
     # Collect inputs if missing
@@ -80,12 +80,11 @@ def init_manager(username: Optional[str]=None,
     password_hash = hash_password(password)
 
     with Session() as session:
-        # Ensure 'management' role exists
         role = session.scalar(select(Role).where(Role.name == "management"))
         if not role:
             role = Role(name="management", permissions=DEFAULT_ROLE_PERMISSIONS.get("management", []))
             session.add(role)
-            session.flush()  # get role.id
+            session.flush()
 
         existing_email = session.scalar(select(User).where(User.email == email))
         if existing_email:
@@ -93,7 +92,6 @@ def init_manager(username: Optional[str]=None,
             print("Try again later.")
             sys.exit(1)
 
-        # Build the user record
         user = User(
             username=username,
             full_name=full_name,
@@ -101,10 +99,6 @@ def init_manager(username: Optional[str]=None,
             password_hash=password_hash,
             role_id=role.id
         )
-
-        # If you use a permissions array/json on User or Role, you can seed it here.
-        # Example (adjust to your model fields):
-        # user.permissions = ["manage_users", "view_reports", "create_contracts"]
 
         session.add(user)
         session.commit()

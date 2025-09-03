@@ -2,6 +2,7 @@ from email_validator import validate_email, EmailNotValidError
 from db.config import Session
 from crm.models import User
 from sqlalchemy import select
+import phonenumbers
 
 
 __all__ = ["is_valid_email", "is_valid_username", "is_valid_password"]
@@ -57,3 +58,6 @@ def is_valid_password(password: str) -> bool:
 def is_valid_role_id(role_id: int) -> bool:
     """Validate that a role id is valid."""
     return role_id >= 1 and role_id <= 3
+
+def is_valid_phone(phone: str) -> bool:
+    return phonenumbers.is_valid_number(phonenumbers.parse(phone, None))
