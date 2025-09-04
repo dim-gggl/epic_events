@@ -61,7 +61,22 @@ Before running the application, ensure you have the following prerequisites inst
    
    -- Grant privileges
    GRANT ALL PRIVILEGES ON DATABASE epic_events_db TO epic_user_app;
+   
+   -- Exit
+   \q
    ```
+
+   ```bash
+   psql -h 127.0.0.1 -p 5432 -U epic_user_app -d epic_events_db
+   ```
+   ```sql
+   -- You need to create the schema for the database
+   CREATE SCHEMA epic_events;
+
+   -- Exit
+   \q
+   ```
+   Now the database is ready to be used.
 
 4. **Configure environment variables**
    Create a `.env` file in the project root with the following variables:
@@ -116,7 +131,8 @@ This command can only be run with root privileges (`sudo` on Unix systems). It a
 
 **Usage:** 
 ```bash
-sudo epic-events init-manager -u [USERNAME] -n [FULL_NAME] -e [EMAIL]
+# With sudo we have to use the original command
+sudo python epic_events.py init-manager -u [USERNAME] -n [FULL_NAME] -e [EMAIL]
 ```
 `sudo` will ask you for your root password, then epic-events will ask for the password of the manager user that is being created.
 
@@ -156,7 +172,7 @@ epic-events create-client -t [ACCESS_TOKEN] -n [FULL_NAME] -e [EMAIL] -p [PHONE]
 List all clients or, optionally, only the clients assigned to the current commercial user. 
 This command is available for all users in readonly, requiring at least to be logged in.
 access token required but no role check is performed.
-However, if the user is a commercial user, the command can be filtered to only list the clients assigned to the current commercial user.
+However, if the user is a commercial user, the command can be filtered to only list the clients assigned to the current commercial user. In this case, the access token must be a commercial user token, and the filtered must be set to true : `-f true`.
 
 **Usage:**
 ```bash
