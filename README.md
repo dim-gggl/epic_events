@@ -54,28 +54,29 @@ Before running the application, ensure you have the following prerequisites inst
    sudo -u postgres psql
    
    -- Create database
-   CREATE DATABASE epic_events;
+   CREATE DATABASE epic_events_db;
    
    -- Create user (optional, you can use existing user)
-   CREATE USER epic_user WITH PASSWORD 'your_password';
+   CREATE USER epic_user_app WITH PASSWORD 'your_password';
    
    -- Grant privileges
-   GRANT ALL PRIVILEGES ON DATABASE epic_events TO epic_user;
+   GRANT ALL PRIVILEGES ON DATABASE epic_events_db TO epic_user_app;
    ```
 
 4. **Configure environment variables**
    Create a `.env` file in the project root with the following variables:
    ```env
-   POSTGRES_USER=epic_user
+   POSTGRES_USER=epic_user_app
    POSTGRES_PASSWORD=your_password
    POSTGRES_HOST=127.0.0.1
    POSTGRES_PORT=5432
-   POSTGRES_DB=epic_events
+   POSTGRES_DB=epic_events_db
    ```
    
    Alternatively, you can set the `DATABASE_URL` environment variable:
    ```env
-   DATABASE_URL=postgresql+psycopg2://epic_user:your_password@127.0.0.1:5432/epic_events
+   export DATABASE_URL=postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
+   echo "DATABASE_URL="$DATABASE_URL >> .env
    ```
 
 ### Python Environment
