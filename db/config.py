@@ -13,10 +13,10 @@ def _build_url():
     url = os.getenv("DATABASE_URL")
     if url:
         return url
-    pwd = urllib.parse.quote_plus(os.getenv("POSTGRES_PASSWORD", ""))
-    user = os.getenv("POSTGRES_USER", "")
+    pwd = urllib.parse.quote_plus(os.getenv("POSTGRES_PASSWORD"))
+    user = os.getenv("POSTGRES_USER", "epic_events_app")
     host = os.getenv("POSTGRES_HOST", "127.0.0.1")
-    database = os.getenv("POSTGRES_DB", "")
+    database = os.getenv("POSTGRES_DB", "epic_events_db")
     port = os.getenv("POSTGRES_PORT", "5432")
     return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{database}"
 

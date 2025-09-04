@@ -6,11 +6,13 @@ from crm.models import User
 from exceptions import InvalidTokenError, OperationDeniedError
 from crm.controllers import MainController as controller
 from crm.views.views import MainView as view
+from auth.jwt.verify_token import verify_access_token
+from auth.hashing import hash_password
 
 controller = controller()
 view = view()
 
-def create_user(access_token_payload: dict, 
+def create_user(access_token: str, 
                 username: str, 
                 full_name: str, 
                 email: str, 
@@ -28,16 +30,13 @@ def create_user(access_token_payload: dict,
         password: The password of the new user.
         role_id: The role id of the new user.
     """
+    access_token_payload = verify_access_token(access_token)
     if access_token_payload is None:
         view.wrong_message("OPERATION DENIED: Invalid access token.")
         return
-    # Normalize role_id to int for comparison
+
     role = access_token_payload.get("role_id")
-    try:
-        role = int(role)
-    except (TypeError, ValueError):
-        role = None
-    if role != 1:
+    if int(role) != 1:
         view.wrong_message("OPERATION DENIED: You are not authorized to create a user.")
         return
     if not username:
@@ -52,7 +51,7 @@ def create_user(access_token_payload: dict,
         role_id = controller.get_role_id()
 
     # Hash password with bcrypt and keep bytes
-    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    password_hash = hash_password(password)
 
     # Use SQLAlchemy ORM instead of raw SQL
     with Session() as session:
@@ -60,7 +59,7 @@ def create_user(access_token_payload: dict,
             username=username,
             full_name=full_name,
             email=email,
-            password_hash=password_hash.decode('utf-8'),
+            password_hash=password_hash,
             role_id=role_id
         )
         session.add(user)

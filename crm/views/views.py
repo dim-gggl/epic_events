@@ -18,7 +18,6 @@ PRESS_ENTER_CENTERED = Align.center(Text("Press ENTER: ", style="orange_red1"))
 console = Console()
 clear = console.clear
 print = console.print
-# input = console.input  # Commented out to use builtins.input directly
 
 rw = {
     1: "One example",
@@ -176,21 +175,41 @@ class MainView:
     def get_company_id(self) -> str:
         return input("Company ID: ")
     
+    def get_contract_id(self) -> str:
+        return input("Contract ID: ")
+    
     def get_first_contact_date(self) -> str:
         return input("First contact date (format: dd/mm/yyyy): ")
     
     def get_last_contact_date(self) -> str:
         return input("Last contact date (format: dd/mm/yyyy): ")
+
+    def get_title(self) -> str:
+        return input("Title: ")
+
+    def get_full_address(self) -> str:
+        return input("Full address: ")
+
+    def get_support_contact_id(self) -> str:
+        return input("Support contact ID: ")
+
+    def get_start_date(self) -> str:
+        return input("Start date (format: dd/mm/yyyy): ")
     
-    def get_client_data(self) -> tuple:
-        full_name = self.get_full_name()
-        email = self.get_email()
-        phone = self.get_phone()
-        company_id = self.get_company_id()
-        first_contact_date = self.get_first_contact_date()
-        last_contact_date = self.get_last_contact_date()
-        return (full_name, email, phone, company_id, first_contact_date, last_contact_date)
-            
+    def get_end_date(self) -> str:
+        return input("End date (format: dd/mm/yyyy): ")
+    
+    def get_participant_count(self) -> str:
+        return input("Participant count: ")    
+    
+    def get_client_id(self) -> str:
+        return input("Client ID: ")
+
+    def get_contract_id(self) -> str:
+        return input("Contract ID: ")
+    
+    def get_notes(self) -> str:
+        return input("Notes: ")            
 
     def display_login(self, access_token, refresh_token, refresh_exp):
         console.clear()
@@ -274,49 +293,23 @@ class MainView:
             table.add_row(Text("Commercial ID", style=epic_style), Text(str(client.commercial_id), style="italic bright_white"))
             print(table, justify="center")
         
-    def display_client_detail(self, client):
+    def display_client_detail(self, access_token, client):
         clear()
-        table = Table(title=Text(f"CLIENT ({client.id})", style=epic_style), box=box.ROUNDED, show_header=False)
-        table.add_column()
-        table.add_column()
-        table.add_row(Text("ID", style=epic_style), Text(str(client.id), style="italic bright_white"))
-        table.add_row(Text("Full Name", style=epic_style), Text(client.full_name, style="italic bright_white"))
-        table.add_row(Text("Email", style=epic_style), Text(client.email, style="italic bright_white"))
-        table.add_row(Text("Phone", style=epic_style), Text(client.phone, style="italic bright_white"))
-        table.add_row(Text("Company ID", style=epic_style), Text(str(client.company_id), style="italic bright_white"))
-        table.add_row(Text("Commercial ID", style=epic_style), Text(str(client.commercial_id), style="italic bright_white"))
-        table.add_row(Text("First Contact Date", style=epic_style), Text(client.first_contact_date.strftime("%d/%m/%Y"), style="italic bright_white"))
-        table.add_row(Text("Last Contact Date", style=epic_style), Text(client.last_contact_date.strftime("%d/%m/%Y") if client.last_contact_date else "N/A", style="italic bright_white"))
-        print(table, justify="center")
+        self.display_details(access_token, client.id, Client, fields=["id", "full_name", "email", "phone", "company_id", "commercial_id", "first_contact_date", "last_contact_date"])
     
-    def display_events(self, events):
+    def display_list_events(self, events):
         clear()
-        table = Table(title=Text(f"EVENTS ({len(events)})", style=epic_style), box=box.ROUNDED, show_header=False)
-        table.add_column()
-        table.add_column()
         for event in events:
+            table = Table(title=Text(events.title.upper(), style=epic_style), box=box.ROUNDED, show_header=False)
+            table.add_column()
+            table.add_column()
             table.add_row(Text("ID", style=epic_style), Text(str(event.id), style="italic bright_white"))
-            table.add_row(Text("Title", style=epic_style), Text(event.title, style="italic bright_white"))
-            table.add_row(Text("Full Address", style=epic_style), Text(event.full_address, style="italic bright_white"))
             table.add_row(Text("Start Date", style=epic_style), Text(event.start_date.strftime("%d/%m/%Y"), style="italic bright_white"))
-            table.add_row(Text("End Date", style=epic_style), Text(event.end_date.strftime("%d/%m/%Y"), style="italic bright_white"))
             table.add_row(Text("Participant Count", style=epic_style), Text(str(event.participant_count), style="italic bright_white"))
-            table.add_row(Text("Notes", style=epic_style), Text(event.notes, style="italic bright_white"))
         print(table, justify="center")
-    
-    def display_event(self, event):
-        clear()
-        table = Table(title=Text(f"EVENT ({event.id})", style=epic_style), box=box.ROUNDED, show_header=False)
-        table.add_column()
-        table.add_column()
-        table.add_row(Text("ID", style=epic_style), Text(str(event.id), style="italic bright_white"))
-        table.add_row(Text("Title", style=epic_style), Text(event.title, style="italic bright_white"))
-        table.add_row(Text("Full Address", style=epic_style), Text(event.full_address, style="italic bright_white"))
-        table.add_row(Text("Start Date", style=epic_style), Text(event.start_date.strftime("%d/%m/%Y"), style="italic bright_white"))
-        table.add_row(Text("End Date", style=epic_style), Text(event.end_date.strftime("%d/%m/%Y"), style="italic bright_white"))
-        table.add_row(Text("Participant Count", style=epic_style), Text(str(event.participant_count), style="italic bright_white"))
-        table.add_row(Text("Notes", style=epic_style), Text(event.notes, style="italic bright_white"))
-        print(table, justify="center")
+
+    def display_event_detail(self, access_token, event_id):
+        self.display_details(access_token, event_id, Event)
 
     def display_commands(commands):
         screen = Table.grid()
@@ -324,11 +317,8 @@ class MainView:
         screen.add_column()
         for com in commands:
             screen.add_row(f"{com}", f"{com.help}")
-
-    def display_details(self, obj):
-        clear()
         
-    def display_details(self, access_token, obj_id, obj_class):
+    def display_details(self, access_token, obj_id, obj_class, fields=None):
         with Session() as session:
             obj = session.scalars(select(obj_class).filter(obj_class.id == obj_id)).one_or_none()
             if not obj:
@@ -343,11 +333,11 @@ class MainView:
             table = Table(title=Text(name.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
             table.add_column()
             table.add_column()
-            for key, value in obj.__dict__.items():
-                table.add_row(Text(key.capitalize(), style=logo_style), Text(str(value), style="italic bright_white"))
-            print(table, justify="full")
-if __name__ == "__main__":
-    # view = MainView()
-    # view.display_login("ACCESS", "REFRESH", "2025-09-22")
-    view = MainView()
-    view.display_logo()
+            if not fields:
+                for key, value in obj.__dict__.items():
+                    table.add_row(Text(key.capitalize(), style=logo_style), Text(str(value), style="italic bright_white"))
+                print(table, justify="center")
+            else:
+                for field in fields:
+                    table.add_row(Text(field.capitalize(), style=logo_style), Text(str(getattr(obj, field)), style="italic bright_white"))
+                print(table, justify="center")

@@ -3,7 +3,13 @@ from __future__ import annotations
 from typing import Callable, Any, Optional, cast
 from datetime import datetime
 
-from auth.validators import is_valid_username, is_valid_email, is_valid_password, is_valid_role_id, is_valid_phone
+from auth.validators import (
+    is_valid_username, 
+    is_valid_email, 
+    is_valid_password, 
+    is_valid_role_id, 
+    is_valid_phone
+)
 from auth.jwt.verify_token import verify_access_token
 from exceptions import InvalidTokenError, OperationDeniedError
 from crm.views.views import MainView as view

@@ -2,7 +2,7 @@ from auth.jwt.verify_token import verify_access_token
 from crm.models import Event
 from crm.controllers import MainController
 from crm.views.views import MainView
-from crm.permissions import commercial_exclusive, management_exclusive
+from crm.permissions import commercial_exclusive, management_exclusive, login_required
 from db.config import Session
 from sqlalchemy import select
 

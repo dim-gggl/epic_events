@@ -18,6 +18,7 @@ from observability import init_sentry
 from db.create_tables import init_db
 from db.create_manager import init_manager
 from db.crud_client import create_client, list_clients
+from db.crud_event import create_event, list_events
 from auth.login import login
 from auth.register import create_user
 from auth.jwt.verify_token import verify_access_token
@@ -65,14 +66,12 @@ def render_help_with_logo(parser: argparse.ArgumentParser) -> None:
     help_str = parser.format_help()
     logo = build_logo_text()
 
-    # Compute a reasonable fixed width for the logo column
     try:
         raw_logo = LOGO_PATH.read_text(encoding="utf-8")
         max_logo_width = max((len(line) for line in raw_logo.splitlines()), default=40)
     except Exception:
         max_logo_width = 40
 
-    # Use a Table to avoid vertical cropping; it will render full height
     grid = Table.grid(padding=(0, 2))
     grid.add_column(no_wrap=True, width=max_logo_width + 2)
     grid.add_column(ratio=1)
@@ -102,31 +101,27 @@ class SideBySideHelpAction(argparse._HelpAction):
 
 def add_side_by_side_help(parser: argparse.ArgumentParser):
     """Disable default help and add our side-by-side help action."""
-    # Remove default -h/--help if present
     for a in list(parser._actions):
         if isinstance(a, argparse._HelpAction):
             parser._actions.remove(a)
             for opt in a.option_strings:
                 if opt in parser._option_string_actions:
                     del parser._option_string_actions[opt]
-    # Add our custom help
     parser.add_argument("-h", "--help", action=SideBySideHelpAction, help="Show this help message then exit.")
 
 
 class CustomRichFormatter(RichHelpFormatter):
     """Tweak styles for headings, options and metavars."""
-    # You can adjust these styles to match your brand/theme
     styles = {
         "argparse.prog": "bold orange_red1",
-        "argparse.text": "",
-        "argparse.help": "dim",
+        "argparse.text": "bright_white",
+        "argparse.help": "italic white",
         "argparse.groups": "bold bright_green",
         "argparse.heading": "bold orange_red1",
         "argparse.metavar": "green",
         "argparse.syntax": "bright_yellow",
-        "argparse.usage": "bold bright_white",
+        "argparse.usage": "bold yellow",
     }
-    # Wider columns before wrapping the help text
     max_help_position = 32
 
 
@@ -134,10 +129,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="epic-events",
         description="[bold orange_red1]Epic Events CLI[/] – operations & user management.",
-        epilog="[dim bright_cyan]Tips:[/] use [bold]epic-events help CMD[/] for detailed help on a subcommand.",
+        epilog="[bold bright_cyan]Tips:[/] use [bold]epic-events help CMD[/] for detailed help on a subcommand.",
         formatter_class=CustomRichFormatter,
-        add_help=False,  # take control over -h/--help text
-        usage="%(prog)s [GLOBAL OPTIONS] CMD [ARGS]"
+        add_help=False,
+        usage="python epic_events.py CMD [OPTIONS]"
     )
     add_side_by_side_help(parser)
 
@@ -165,8 +160,8 @@ def build_parser() -> argparse.ArgumentParser:
     # init_manager
     create_manager_parser = subparsers.add_parser(
         "init-manager",
-        help="Create a new manager user (requires root privileges)",
-        description="Create a management user with elevated permissions.",
+        help="Create a new manager user [bold bright_red](requires root privileges)[/]",
+        description="Create a management user with [bold bright_red]elevated permissions.[/]",
         formatter_class=CustomRichFormatter,
         aliases=["create_manager", "createsuperuser", "superuser", "createmanager", "create-manager", "init_manager", "initmanager"],
         add_help=False
@@ -181,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
     # login
     login_parser = subparsers.add_parser(
         "login",
-        help="Login to the CRM app",
+        help="Login to the CRM app",   
         description="Authenticate to obtain a session or token.",
         formatter_class=CustomRichFormatter,
         aliases=["register", "authenticate", "auth"],
@@ -197,8 +192,8 @@ def build_parser() -> argparse.ArgumentParser:
     # create_user
     create_user_parser = subparsers.add_parser(
         "create-user",
-        help="Create a new user (management only)",
-        description="Create a user account; requires a management token.",
+        help="Create a new user [bold bright_red](management only)[/]",
+        description="Create a user account; requires a [bold bright_red]management token.[/]",
         formatter_class=CustomRichFormatter,
         aliases=["create_user", "createuser", "register-user", "new-user"],
         add_help=False
@@ -211,22 +206,30 @@ def build_parser() -> argparse.ArgumentParser:
     ident_grp.add_argument("-u", "--username", help="Username for the new user")
     ident_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the new user")
     ident_grp.add_argument("-e", "--email", help="Email of the new user")
-    ident_grp.add_argument("-p", "--password", help="Password (optional)")
+    ident_grp.add_argument("-p", "--password", help="Password (optional and not recommended. Password is safely prompted without echoing in the terminal)")
     ident_grp.add_argument("-r", "--role-id", type=int, help="Role ID for the new user (1 for Management, 2 for sales or commercial, 3 for support)", default=2)
-
+    
     # create_client
     create_client_parser = subparsers.add_parser(
         "create-client",
-        help="Create a new client (commercial users only)",
-        description="Create a new client; requires a commercial user token.",
+        help="Create a new client [bold bright_red](commercial users only)[/]",
+        description="Create a new client; requires a [bold bright_red]commercial user token.[/]",
         formatter_class=CustomRichFormatter,
-        aliases=["create_client", "createclient", "new-client", "add-client"],
+        aliases=["create_client", "createclient", "new-client", "add-client"],  
         add_help=False
     )
     add_side_by_side_help(create_client_parser)
     
     client_sec_grp = create_client_parser.add_argument_group("Security")
     client_sec_grp.add_argument("-t", "--token", help="Access token with commercial role", required=True)
+
+    client_ident_grp = create_client_parser.add_argument_group("Identity")
+    client_ident_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the new client")
+    client_ident_grp.add_argument("-e", "--email", help="Email of the new client")
+    client_ident_grp.add_argument("-p", "--phone", help="Phone of the new client")
+    client_ident_grp.add_argument("-c", "--company-id", help="Company ID of the new client")
+    client_ident_grp.add_argument("-d", "--first-contact-date", help="First contact date of the new client")
+    client_ident_grp.add_argument("-l", "--last-contact-date", help="Last contact date of the new client")
 
     # list_clients
     list_clients_parser = subparsers.add_parser(
@@ -246,7 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     # view_client
     view_client_parser = subparsers.add_parser(
         "view-client",
-        help="View a client",
+        help="View a client [bold bright_red](commercial users only)[/]",
         description="View a client",
         formatter_class=CustomRichFormatter,
         aliases=["view_client", "viewclient", "view-client"],
@@ -258,24 +261,63 @@ def build_parser() -> argparse.ArgumentParser:
     client_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
     client_sec_grp.add_argument("-I", "--client-id", help="Client ID", required=True)
     
+    # create_event
+    create_event_parser = subparsers.add_parser(
+        "create-event",
+        help="Create a new event [bold bright_red](commercial users only)[/]",
+        description="Create a new event",
+        formatter_class=CustomRichFormatter,
+        aliases=["create_event", "createevent", "new-event", "add-event"],
+        add_help=False
+    )
+    add_side_by_side_help(create_event_parser)
+
+    event_sec_grp = create_event_parser.add_argument_group("Security")
+    event_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
+
+    event_sec_grp = create_event_parser.add_argument_group("Event")
+    event_sec_grp.add_argument("-c", "--contract-id", help="Contract ID")
+    event_sec_grp.add_argument("-s", "--support-contact-id", help="Support contact ID")
+    event_sec_grp.add_argument("-T", "--title", help="Title")
+    event_sec_grp.add_argument("-a", "--full-address", help="Full address")
+    event_sec_grp.add_argument("-d", "--start-date", help="Start date")
+    event_sec_grp.add_argument("-e", "--end-date", help="End date")
+    event_sec_grp.add_argument("-p", "--participant-count", help="Participant count")
+    event_sec_grp.add_argument("-n", "--notes", help="Notes")
+
+    # list_events
+    list_events_parser = subparsers.add_parser(
+        "list-events",
+        help="List all events or, optionally, only the events assigned to the current support user",
+        description="List all events or, optionally, only the events assigned to the current support user",
+        formatter_class=CustomRichFormatter,
+        aliases=["list_events", "listevents", "list-events"],
+        add_help=False
+    )
+    add_side_by_side_help(list_events_parser)
+
+    event_sec_grp = list_events_parser.add_argument_group("Security")
+    event_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
+    event_sec_grp.add_argument("-f", "--filtered", help="Filter events by support user", required=False, default=False)
 
     # "help" subcommand to display help for a specific command
     help_parser = subparsers.add_parser(
         "help",
-        help="Show help for a specific command",
-        description="Usage: epic-events help [COMMAND]",
+        help="Show help for a specific command [bold bright_red](requires a token)[/]",
+        description="Displays the help menu for a specific command or for all commands if no command is provided.",
+        usage="python epic_events.py help [COMMAND]",
         formatter_class=CustomRichFormatter,
         aliases=["help", "h"],
         add_help=False
     )
     help_parser.add_argument("topic", nargs="?", help="Command to show help for")
     add_side_by_side_help(help_parser)
-    
+
     return parser
 
-def epic_events_crm(argv=None):
+def epic_events_crm():
     parser = build_parser()
-    args, unknown = parser.parse_known_args(argv)
+    args = parser.parse_args()
 
     if args.command == "help":
         sub = args.topic
@@ -301,53 +343,40 @@ def epic_events_crm(argv=None):
                          getattr(args, 'email', None))
 
         case "login" | "register" | "authenticate" | "auth":
-            try:
-                username = getattr(args, "username", None) or input("Username: ").strip()
-                access_token, refresh_token, refresh_exp, refresh_hash = login(
-                    username,
-                    getattr(args, "password", None)
-                )
-            except (InvalidUsernameError, InvalidPasswordError) as e:
-                view.wrong_message(f"Connection failed: {e}")
+            username = getattr(args, "username", None)
+            login(username)
 
         case "create-user" | "create_user" | "createuser" | "register-user" | "new-user":
-            # Ensure tables exist and roles are seeded (idempotent)
-            access_token = getattr(args, "token", None)
-            access_token_payload = verify_access_token(access_token) if access_token else controller.get_access_token_payload()
-            # Early authorization check: block non-management before any prompts
-            username = getattr(args, "username", None) or controller.get_username()
-            full_name = getattr(args, "full_name", None) or controller.get_full_name()
-            email = getattr(args, "email", None) or controller.get_email()
-            password = getattr(args, "password", None) or controller.get_password()
-            role_id = getattr(args, "role_id", None) or controller.get_role_id()
-            create_user(access_token_payload, username, full_name, email, password, role_id)
+            access_token = args.token
+            create_user(
+                access_token,
+                getattr(args, 'username', None),
+                getattr(args, 'full_name', None),
+                getattr(args, 'email', None),
+                getattr(args, 'password', None),
+                getattr(args, 'role_id', None)
+            )
 
         case "create-client" | "create_client" | "createclient" | "new-client" | "add-client":
-            # Ensure tables exist and roles are seeded (idempotent)
             access_token = getattr(args, "token", None)
-            if not access_token:
-                view.wrong_message("Access token is required for creating a client.")
-                return
             create_client(access_token)
 
         case "list-clients" | "list_clients" | "listclients" | "list-clients":
-            # Ensure tables exist and roles are seeded (idempotent)
             access_token = getattr(args, "token", None)
-            if not access_token:
-                view.wrong_message("Access token is required for listing clients.")
-                return
-            list_clients(access_token, getattr(args, "filtered", False))
+            list_clients(access_token, args.filtered)
 
         case "view-client" | "view_client" | "show-client" | "client-details" | "showclient" | "read-client" | "detail-client":
             access_token = getattr(args, "token", None)
-            if not access_token:
-                view.wrong_message("Access token is required for viewing a client.")
-                return
             client_id = getattr(args, "client_id", None)
-            if not client_id:
-                view.wrong_message("Client ID is required for viewing their details.")
-                return
             view.display_details(access_token, client_id, Client)
+        
+        case "create-event" | "create_event" | "createevent" | "new-event" | "add-event":
+            access_token = getattr(args, "token", None)
+            create_event(access_token)
+
+        case "list-events" | "list_events" | "listevents" | "list-events":
+            access_token = getattr(args, "token", None)
+            list_events(access_token)
 
 
         case _:
@@ -355,4 +384,3 @@ def epic_events_crm(argv=None):
 
 if __name__ == "__main__":
     epic_events_crm()
-    lisplay_si<pl
