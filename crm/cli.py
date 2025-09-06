@@ -237,7 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="List all clients or, optionally, only the clients assigned to the current commercial user",
         description="List all clients or, optionally, only the clients assigned to the current commercial user",
         formatter_class=CustomRichFormatter,
-        aliases=["list_clients", "listclients", "list-clients"],
+        aliases=["list_clients", "listclients", "show-clients", "showclients"],
         add_help=False
     )
     add_side_by_side_help(list_clients_parser)
@@ -252,7 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="View a client [bold bright_red](commercial users only)[/]",
         description="View a client",
         formatter_class=CustomRichFormatter,
-        aliases=["view_client", "viewclient", "view-client"],
+        aliases=["view_client", "viewclient", "show-client", "details-client", "client-details", "client-detail"],
         add_help=False
     )
     add_side_by_side_help(view_client_parser)
