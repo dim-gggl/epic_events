@@ -1,29 +1,30 @@
-import sentry_sdk
+import sentry_sdk, logging, os
+
 from dotenv import load_dotenv
-import os
+from sentry_sdk.integrations.logging import LoggingIntegration
+
 
 load_dotenv()
 
 
-DSN = os.getenv("SENTRY_DSN")
-if not DSN:
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if not SENTRY_DSN:
     print("SENTRY_DSN is not set")
     
 
-
 sentry_sdk.init(
-    dsn=DSN,
+    dsn=SENTRY_DSN,
     max_breadcrumbs=50,
+    traces_sampler=8.0,
+    enable_logs=True,
     debug=True,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for tracing.
-    traces_sample_rate=1.0,
-    # Add request headers and IP for users,
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-    send_default_pii=True,
-    # By default the SDK will try to use the SENTRY_RELEASE
-    # environment variable, or infer a git commit
-    # SHA as release, however you may want to set
-    # something more human-readable.
-    # release="myapp@1.0.0",
+    environment=os.getenv("SENTRY_ENVIRONMENT"),
+    integrations=[
+        # Only send WARNING (and higher) logs to Sentry logs,
+        # even if the logger is set to a lower level.
+        LoggingIntegration(sentry_logs_level=logging.WARNING),
+    ]
 )
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)

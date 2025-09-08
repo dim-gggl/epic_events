@@ -13,7 +13,17 @@ def _build_url():
     url = os.getenv("DATABASE_URL")
     if url:
         return url
-    pwd = urllib.parse.quote_plus(os.getenv("POSTGRES_PASSWORD"))
+    
+    # Check for required environment variables
+    password = os.getenv("POSTGRES_PASSWORD")
+    if password is None:
+        raise ValueError(
+            "POSTGRES_PASSWORD environment variable is required. "
+            "Please create a .env file with your database configuration. "
+            "See .env.example for reference."
+        )
+    
+    pwd = urllib.parse.quote_plus(password)
     user = os.getenv("POSTGRES_USER", "epic_events_app")
     host = os.getenv("POSTGRES_HOST", "127.0.0.1")
     database = os.getenv("POSTGRES_DB", "epic_events_db")

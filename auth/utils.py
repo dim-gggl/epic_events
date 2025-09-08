@@ -24,5 +24,5 @@ def _prompt_password(confirm: bool = True) -> str:
         rep = getpass.getpass("Confirm password: ").strip()
         if pwd != rep:
             print("Passwords do not match.")
-            sys.exit(1)
+            return
         return pwd

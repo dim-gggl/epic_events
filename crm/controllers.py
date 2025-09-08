@@ -37,7 +37,8 @@ def _ask(
     - required_msg: message shown if empty input
     - invalid_msg: message shown if cast/validation fails
     """
-    while True:
+    valid_data = False
+    while not valid_data:
         raw = prompt()
         if strip:
             raw = raw.strip()
@@ -49,25 +50,13 @@ def _ask(
         except Exception:
             view.wrong_message(invalid_msg or required_msg)
             continue
-        if validate and not validate(value):
+        if not validate(value):
             view.wrong_message(invalid_msg or required_msg)
             continue
+            
+        if validate(value):
+            valid_data = True
         return value
-
-
-def _ask_optional(
-    prompt: Callable[[], str],
-    *,
-    cast: Callable[[str], Any] = lambda s: s,
-    strip: bool = True,
-) -> Any:
-    """Return possibly-empty input (cast if not empty)."""
-    raw = prompt()
-    if strip:
-        raw = raw.strip()
-    if raw == "":
-        return "" if cast is str else None
-    return cast(raw)
 
 
 def _to_int(s: str) -> int:
@@ -85,9 +74,9 @@ def _to_date(s: str) -> datetime:
 
 def _to_bool_yes_no(s: str) -> bool:
     s = s.strip().lower()
-    if s in {"y", "yes", "Yes", "YES"}:
+    if s in {"y", "Y", "yes", "Yes", "YES"}:
         return True
-    if s in {"n", "no", "No", "NO"}:
+    if s in {"n", "N", "no", "No", "NO"}:
         return False
     raise ValueError("Expected yes/no")
 
@@ -103,8 +92,7 @@ class MainController:
         return username
     
     def get_full_name(self) -> str:
-        full_name = view.get_full_name().strip()
-        return full_name
+        return view.get_full_name().strip()
 
     def get_email(self) -> str:
         email = view.get_email().strip()
@@ -130,11 +118,16 @@ class MainController:
         return role_id
 
     def get_access_token_payload(self) -> dict:
-        access_token = _ask(
-            view.get_access_token, 
-            required_msg="Access token cannot be empty.",
-            invalid_msg="Invalid Access Token."
-        )
+        """
+        Get access token payload from stored token.
+        Never prompts user for token - uses temporary file storage only.
+        """
+        from auth.jwt.token_storage import get_access_token
+        
+        access_token = get_access_token()
+        if not access_token:
+            raise InvalidTokenError("No authentication token available. Please login first.")
+            
         payload = verify_access_token(access_token)
         return payload
 
@@ -161,8 +154,8 @@ class MainController:
         participant_count = _ask(
             view.get_participant_count,
             cast=_to_int,
-            required_msg="The ID of the commercial collaborator.",
-            invalid_msg="Commercial ID must be a positive integer.",
+            required_msg="The number of persons attending the event.",
+            invalid_msg="Participant count must be a positive integer.",
         )
         return participant_count
 
@@ -285,12 +278,9 @@ class MainController:
             invalid_msg="Contract ID must be an integer.",
         )
 
-        support_contact_id = _ask(
-            view.get_support_contact_id,
-            cast=_to_int,
-            required_msg="Support contact ID cannot be empty.",
-            invalid_msg="Must be associated to a support user.",
-        )
+        support_contact_id = view.get_support_contact_id().strip()
+        if not support_contact_id:
+            support_contact_id is None
 
         title = _ask(
             view.get_title,
@@ -334,7 +324,7 @@ class MainController:
 
         participant_count = _ask(
             view.get_participant_count,
-            cast=_to_int(),
+            cast=_to_int,
             required_msg="Participant count is required.",
             invalid_msg="Participant count must be an integer.",
         )

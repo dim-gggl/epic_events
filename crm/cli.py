@@ -1,50 +1,56 @@
-from __future__ import annotations
-
-import argparse
-import sys
+import os
 from pathlib import Path
 
+import rich_click as click
 from rich.console import Console
 from rich.panel import Panel
-from rich.columns import Columns
 from rich.table import Table
 from rich.text import Text
 from rich.padding import Padding
-from rich.layout import Layout
 from rich import box
-from rich_argparse import RichHelpFormatter
 
-from observability import init_sentry
-from db.create_tables import init_db
-from db.create_manager import init_manager
-from db.crud_client import create_client, list_clients
-from db.crud_event import create_event, list_events
-from auth.login import login
-from auth.register import create_user
-from auth.jwt.verify_token import verify_access_token
-from exceptions import InvalidUsernameError, InvalidPasswordError
 from crm.views.views import MainView
 from crm.views.config import epic_style, logo_style
-from crm.controllers import MainController as controller
-from crm.models import Client
+from db.crud_client import create_client, list_clients, view_client, update_client, delete_client
+from db.crud_event import create_event, list_events, view_event, update_event, delete_event, assign_support_to_event
+from db.crud_contract import create_contract, list_contracts, view_contract, update_contract, delete_contract
+from db.crud_user import create_user, list_users, view_user, update_user, delete_user
+from auth.login import login as login_user
+from auth.logout import logout as logout_user
+from auth.jwt.token_storage import get_access_token, cleanup_token_file, get_user_info
+from auth.jwt.refresh_token import refresh_access_token
+from exceptions import InvalidTokenError, ExpiredTokenError
 
-controller = controller()
 
 LOGO_PATH = Path("crm/views/logo.txt")
-
 console = Console()
 print = console.print
-input = console.input
 
-
-init_sentry()
 view = MainView()
 
+click.rich_click.USE_RICH_MARKUP = True
+click.rich_click.USE_MARKDOWN = True
+click.rich_click.SHOW_ARGUMENTS = True
+click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
+click.rich_click.SHOW_METAVARS_COLUMN = True
+click.rich_click.APPEND_METAVARS_HELP = True
+
+click.rich_click.STYLE_OPTION = "bold sky_blue1"
+click.rich_click.STYLE_ARGUMENT = "bold gold1"
+click.rich_click.STYLE_COMMAND = "bold orange_red1"
+click.rich_click.STYLE_SWITCH = "bold medium_spring_green"
+click.rich_click.STYLE_METAVAR = "dim italic grey100"
+click.rich_click.STYLE_METAVAR_BRACKET = "dim white"
+click.rich_click.STYLE_HEADER_TEXT = "bold medium_spring_green"
+click.rich_click.STYLE_FOOTER_TEXT = "dim"
+click.rich_click.STYLE_USAGE = "bold gold1"
+click.rich_click.STYLE_USAGE_COMMAND = "bold orange_red1"
+click.rich_click.STYLE_HELPTEXT_FIRST_LINE = "bold grey100"
+click.rich_click.STYLE_HELPTEXT = "dim grey100"
+click.rich_click.STYLE_OPTION_DEFAULT = "dim italic grey96"
+
+
 def build_logo_text() -> Text:
-    """
-    Build the stylized logo Text for help rendering.
-    Keep it non-interactive (no input), left-aligned.
-    """
     text = LOGO_PATH.read_text(encoding="utf-8")
     t = Text(text, no_wrap=True)
     t.stylize(epic_style, 0, 145)
@@ -57,28 +63,22 @@ def build_logo_text() -> Text:
     t.stylize(logo_style, 225, -1)
     return t
 
-def render_help_with_logo(parser: argparse.ArgumentParser) -> None:
-    """
-    Render help in two columns using Rich:
-    - Left: Epic Events logo (styled)
-    - Right: argparse help text for the provided parser
-    """
-    help_str = parser.format_help()
-    logo = build_logo_text()
 
+def render_help_with_logo(help_text: str) -> None:
     try:
         raw_logo = LOGO_PATH.read_text(encoding="utf-8")
         max_logo_width = max((len(line) for line in raw_logo.splitlines()), default=40)
     except Exception:
         max_logo_width = 40
 
+    logo = build_logo_text()
     grid = Table.grid(padding=(0, 2))
     grid.add_column(no_wrap=True, width=max_logo_width + 2)
     grid.add_column(ratio=1)
 
     left = Padding(logo, (0, 1))
     right = Panel(
-        Text.from_ansi(help_str),
+        Text.from_ansi(help_text),
         box=box.ROUNDED,
         border_style=epic_style,
         padding=(1, 2),
@@ -89,298 +89,371 @@ def render_help_with_logo(parser: argparse.ArgumentParser) -> None:
     grid.add_row(left, right)
     console.print(grid)
 
-class SideBySideHelpAction(argparse._HelpAction):
+
+def resolve_token(token: str | None) -> str:
     """
-    Replace argparse default help to render a Rich 2-column view:
-    - Left: logo (fixed width)
-    - Right: help text
+    Resolve JWT access token from multiple sources.
+    
+    Priority:
+    1. Provided token parameter
+    2. Token stored in temporary file
+    3. Return empty string if no token available
     """
-    def __call__(self, parser, namespace, values, option_string=None):
-        render_help_with_logo(parser)
-        parser.exit()
-
-def add_side_by_side_help(parser: argparse.ArgumentParser):
-    """Disable default help and add our side-by-side help action."""
-    for a in list(parser._actions):
-        if isinstance(a, argparse._HelpAction):
-            parser._actions.remove(a)
-            for opt in a.option_strings:
-                if opt in parser._option_string_actions:
-                    del parser._option_string_actions[opt]
-    parser.add_argument("-h", "--help", action=SideBySideHelpAction, help="Show this help message then exit.")
-
-
-class CustomRichFormatter(RichHelpFormatter):
-    """Tweak styles for headings, options and metavars."""
-    styles = {
-        "argparse.prog": "bold orange_red1",
-        "argparse.text": "bright_white",
-        "argparse.help": "italic white",
-        "argparse.groups": "bold bright_green",
-        "argparse.heading": "bold orange_red1",
-        "argparse.metavar": "green",
-        "argparse.syntax": "bright_yellow",
-        "argparse.usage": "bold yellow",
-    }
-    max_help_position = 32
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="epic-events",
-        description="[bold orange_red1]Epic Events CLI[/] – operations & user management.",
-        epilog="[bold bright_cyan]Tips:[/] use [bold]epic-events help CMD[/] for detailed help on a subcommand.",
-        formatter_class=CustomRichFormatter,
-        add_help=False,
-        usage="python epic_events.py CMD [OPTIONS]"
-    )
-    add_side_by_side_help(parser)
-
-    global_grp = parser.add_argument_group("Global Options")
-
-    subparsers = parser.add_subparsers(
-        title="Commands",
-        dest="command",
-        metavar="CMD",
-        description="Available operational commands.",
-    )
-    subparsers.required = True
-
-    # init_db
-    init_parser = subparsers.add_parser(
-        "init-db",
-        help="Initialize the database, creating the tables and the necessary data",
-        description="Initialize all database structures and seed essentials.",
-        formatter_class=CustomRichFormatter,
-        aliases=["init_db", "initdb", "init"],
-        add_help=False
-    )
-    add_side_by_side_help(init_parser)
-
-    # init_manager
-    create_manager_parser = subparsers.add_parser(
-        "init-manager",
-        help="Create a new manager user [bold bright_red](requires root privileges)[/]",
-        description="Create a management user with [bold bright_red]elevated permissions.[/]",
-        formatter_class=CustomRichFormatter,
-        aliases=["create_manager", "createsuperuser", "superuser", "createmanager", "create-manager", "init_manager", "initmanager"],
-        add_help=False
-    )
-
-    mgr_grp = create_manager_parser.add_argument_group("Manager Identity")
-    mgr_grp.add_argument("-u", "--username", required=False, help="Username for the manager user")
-    mgr_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the manager user")
-    mgr_grp.add_argument("-e", "--email", required=False, help="Email for the manager user")
-    add_side_by_side_help(create_manager_parser)
-
-    # login
-    login_parser = subparsers.add_parser(
-        "login",
-        help="Login to the CRM app",   
-        description="Authenticate to obtain a session or token.",
-        formatter_class=CustomRichFormatter,
-        aliases=["register", "authenticate", "auth"],
-        add_help=False
-    )
-    add_side_by_side_help(login_parser)
-
-    auth_grp = login_parser.add_argument_group("Credentials")
-    auth_grp.add_argument("-u", "--username", help="Login ID")
-    auth_grp.add_argument("-p", "--password", help="Password (optional)")
-    add_side_by_side_help(login_parser)
-
-    # create_user
-    create_user_parser = subparsers.add_parser(
-        "create-user",
-        help="Create a new user [bold bright_red](management only)[/]",
-        description="Create a user account; requires a [bold bright_red]management token.[/]",
-        formatter_class=CustomRichFormatter,
-        aliases=["create_user", "createuser", "register-user", "new-user"],
-        add_help=False
-    )
-    add_side_by_side_help(create_user_parser)
-    sec_grp = create_user_parser.add_argument_group("Security")
-    sec_grp.add_argument("-t", "--token", help="Access token with management role", required=True)
-
-    ident_grp = create_user_parser.add_argument_group("Identity")
-    ident_grp.add_argument("-u", "--username", help="Username for the new user")
-    ident_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the new user")
-    ident_grp.add_argument("-e", "--email", help="Email of the new user")
-    ident_grp.add_argument("-p", "--password", help="Password (optional and not recommended. Password is safely prompted without echoing in the terminal)")
-    ident_grp.add_argument("-r", "--role-id", type=int, help="Role ID for the new user (1 for Management, 2 for sales or commercial, 3 for support)", default=2)
+    # If token provided via CLI option, use it
+    if token:
+        return token
     
-    # create_client
-    create_client_parser = subparsers.add_parser(
-        "create-client",
-        help="Create a new client [bold bright_red](commercial users only)[/]",
-        description="Create a new client; requires a [bold bright_red]commercial user token.[/]",
-        formatter_class=CustomRichFormatter,
-        aliases=["create_client", "createclient", "new-client", "add-client"],  
-        add_help=False
-    )
-    add_side_by_side_help(create_client_parser)
+    # Try to get token from temporary file (stored after login)
+    stored_token = get_access_token()
+    if stored_token:
+        return stored_token
     
-    client_sec_grp = create_client_parser.add_argument_group("Security")
-    client_sec_grp.add_argument("-t", "--token", help="Access token with commercial role", required=True)
+    # No token available - fail securely
+    return ""
 
-    client_ident_grp = create_client_parser.add_argument_group("Identity")
-    client_ident_grp.add_argument("-n", "--full-name", dest="full_name", help="Full name of the new client")
-    client_ident_grp.add_argument("-e", "--email", help="Email of the new client")
-    client_ident_grp.add_argument("-p", "--phone", help="Phone of the new client")
-    client_ident_grp.add_argument("-c", "--company-id", help="Company ID of the new client")
-    client_ident_grp.add_argument("-d", "--first-contact-date", help="First contact date of the new client")
-    client_ident_grp.add_argument("-l", "--last-contact-date", help="Last contact date of the new client")
 
-    # list_clients
-    list_clients_parser = subparsers.add_parser(
-        "list-clients",
-        help="List all clients or, optionally, only the clients assigned to the current commercial user",
-        description="List all clients or, optionally, only the clients assigned to the current commercial user",
-        formatter_class=CustomRichFormatter,
-        aliases=["list_clients", "listclients", "show-clients", "showclients"],
-        add_help=False
-    )
-    add_side_by_side_help(list_clients_parser)
+def attach_help(group: click.Group) -> None:
+    @group.command("help")
+    @click.argument("command", required=False)
+    @click.pass_context
+    def _help(ctx: click.Context, command: str | None) -> None:
+        if command:
+            cmd = group.get_command(ctx, command)
+            if not cmd:
+                print(f"Unknown command: {command}")
+                render_help_with_logo(group.get_help(ctx))
+            else:
+                render_help_with_logo(cmd.get_help(ctx))
+        else:
+            render_help_with_logo(group.get_help(ctx))
 
-    client_sec_grp = list_clients_parser.add_argument_group("Security")
-    client_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
-    client_sec_grp.add_argument("-f", "--filtered", help="Filter clients by commercial user", required=False, default=False)
 
-    # view_client
-    view_client_parser = subparsers.add_parser(
-        "view-client",
-        help="View a client [bold bright_red](commercial users only)[/]",
-        description="View a client",
-        formatter_class=CustomRichFormatter,
-        aliases=["view_client", "viewclient", "show-client", "details-client", "client-details", "client-detail"],
-        add_help=False
-    )
-    add_side_by_side_help(view_client_parser)
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx: click.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        render_help_with_logo(ctx.command.get_help(ctx))
 
-    client_sec_grp = view_client_parser.add_argument_group("Security")
-    client_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
-    client_sec_grp.add_argument("-I", "--client-id", help="Client ID", required=True)
-    
-    # create_event
-    create_event_parser = subparsers.add_parser(
-        "create-event",
-        help="Create a new event [bold bright_red](commercial users only)[/]",
-        description="Create a new event",
-        formatter_class=CustomRichFormatter,
-        aliases=["create_event", "createevent", "new-event", "add-event"],
-        add_help=False
-    )
-    add_side_by_side_help(create_event_parser)
 
-    event_sec_grp = create_event_parser.add_argument_group("Security")
-    event_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
+attach_help(cli)
 
-    event_sec_grp = create_event_parser.add_argument_group("Event")
-    event_sec_grp.add_argument("-c", "--contract-id", help="Contract ID")
-    event_sec_grp.add_argument("-s", "--support-contact-id", help="Support contact ID")
-    event_sec_grp.add_argument("-T", "--title", help="Title")
-    event_sec_grp.add_argument("-a", "--full-address", help="Full address")
-    event_sec_grp.add_argument("-d", "--start-date", help="Start date")
-    event_sec_grp.add_argument("-e", "--end-date", help="End date")
-    event_sec_grp.add_argument("-p", "--participant-count", help="Participant count")
-    event_sec_grp.add_argument("-n", "--notes", help="Notes")
 
-    # list_events
-    list_events_parser = subparsers.add_parser(
-        "list-events",
-        help="List all events or, optionally, only the events assigned to the current support user",
-        description="List all events or, optionally, only the events assigned to the current support user",
-        formatter_class=CustomRichFormatter,
-        aliases=["list_events", "listevents", "list-events"],
-        add_help=False
-    )
-    add_side_by_side_help(list_events_parser)
+@cli.command()
+@click.option("-u", "--username", help="Login ID", required=False)
+@click.option("-p", "--password", help="Password", required=False)
+def login(username: str | None, password: str | None) -> None:
+    """Login to the Epic Events CRM system."""
+    login_user(username, password)
 
-    event_sec_grp = list_events_parser.add_argument_group("Security")
-    event_sec_grp.add_argument("-t", "--token", help="Access token", required=True)
-    event_sec_grp.add_argument("-f", "--filtered", help="Filter events by support user", required=False, default=False)
 
-    # "help" subcommand to display help for a specific command
-    help_parser = subparsers.add_parser(
-        "help",
-        help="Show help for a specific command [bold bright_red](requires a token)[/]",
-        description="Displays the help menu for a specific command or for all commands if no command is provided.",
-        usage="python epic_events.py help [COMMAND]",
-        formatter_class=CustomRichFormatter,
-        aliases=["help", "h"],
-        add_help=False
-    )
-    help_parser.add_argument("topic", nargs="?", help="Command to show help for")
-    add_side_by_side_help(help_parser)
+@cli.command()
+def logout() -> None:
+    """Logout and clear authentication session."""
+    logout_user()
 
-    return parser
 
-def epic_events_crm():
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if args.command == "help":
-        sub = args.topic
-        if not sub:
-            render_help_with_logo(parser)
+@cli.command()  
+@click.option("-r", "--refresh-token", help="Raw refresh token", required=True)
+def refresh(refresh_token: str) -> None:
+    """Refresh access token using refresh token."""
+    try:
+        user_info = get_user_info()
+        if not user_info or not user_info.get('user_id'):
+            view.wrong_message("No user session found. Please login first.")
             return
-        sp = parser._subparsers._group_actions[0].choices.get(sub)
-        if sp is None:
-            print(f"Unknown command: {sub}\n")
-            render_help_with_logo(parser)
-            return
-        render_help_with_logo(sp)
-        return
-
-    match args.command:
-        case "init-db" | "init_db" | "initdb" | "init":
-            init_db()
-
-        case "init-manager" | "init_manager" | "create_manager" | "createsuperuser" \
-             | "superuser" | "createmanager" | "initmanager":
-            init_manager(getattr(args, 'username', None),
-                         getattr(args, "full_name", None),
-                         getattr(args, 'email', None))
-
-        case "login" | "register" | "authenticate" | "auth":
-            username = getattr(args, "username", None)
-            login(username)
-
-        case "create-user" | "create_user" | "createuser" | "register-user" | "new-user":
-            access_token = args.token
-            create_user(
-                access_token,
-                getattr(args, 'username', None),
-                getattr(args, 'full_name', None),
-                getattr(args, 'email', None),
-                getattr(args, 'password', None),
-                getattr(args, 'role_id', None)
-            )
-
-        case "create-client" | "create_client" | "createclient" | "new-client" | "add-client":
-            access_token = getattr(args, "token", None)
-            create_client(access_token)
-
-        case "list-clients" | "list_clients" | "listclients" | "list-clients":
-            access_token = getattr(args, "token", None)
-            list_clients(access_token, args.filtered)
-
-        case "view-client" | "view_client" | "show-client" | "client-details" | "showclient" | "read-client" | "detail-client":
-            access_token = getattr(args, "token", None)
-            client_id = getattr(args, "client_id", None)
-            view.display_details(access_token, client_id, Client)
+            
+        user_id = user_info['user_id']
+        new_access, new_refresh, refresh_exp, refresh_hash = refresh_access_token(user_id, refresh_token)
         
-        case "create-event" | "create_event" | "createevent" | "new-event" | "add-event":
-            access_token = getattr(args, "token", None)
-            create_event(access_token)
+        view.display_login(new_access, new_refresh, refresh_exp)
+        
+    except (InvalidTokenError, ExpiredTokenError) as e:
+        view.wrong_message(f"Token refresh failed: {str(e)}")
+    except Exception as e:
+        view.wrong_message(f"Refresh operation failed: {str(e)}")
 
-        case "list-events" | "list_events" | "listevents" | "list-events":
-            access_token = getattr(args, "token", None)
-            list_events(access_token)
+
+@cli.command()
+def status() -> None:
+    """Check current authentication status."""
+    try:
+        token = get_access_token()
+        if not token:
+            view.warning_message("Not authenticated. Please login first.")
+            return
+            
+        user_info = get_user_info()
+        if user_info:
+            user_id = user_info.get('user_id', 'Unknown')
+            role_id = user_info.get('role_id', 'Unknown')
+            
+            role_names = {1: 'Management', 2: 'Commercial', 3: 'Support'}
+            role_name = role_names.get(int(role_id), f'Role {role_id}')
+            
+            view.success_message(
+                f"Authenticated as User ID: {user_id}\n"
+                f"Role: {role_name} ({role_id})\n"
+                f"Token available in temporary storage"
+            )
+        else:
+            view.warning_message("Authentication token found but user info unavailable.")
+            
+    except Exception as e:
+        view.wrong_message(f"Status check failed: {str(e)}")
 
 
-        case _:
-            render_help_with_logo(parser)
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def client(ctx: click.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        render_help_with_logo(ctx.command.get_help(ctx))
 
-if __name__ == "__main__":
-    epic_events_crm()
+
+attach_help(client)
+
+
+@client.command("create")
+@click.option("-t", "--token", help="Access token with commercial role", required=False)
+def client_create(token: str | None) -> None:
+    token = resolve_token(token)
+    create_client(token)
+
+
+@client.command("list")
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
+def client_list(token: str | None, only_mine: bool) -> None:
+    token = resolve_token(token)
+    list_clients(token, filtered=only_mine)
+
+
+@client.command("view")
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("-i", "--client-id", type=int, required=False, help="Client ID")
+def client_view(token: str | None, client_id: int | None) -> None:
+    token = resolve_token(token)
+    if client_id is None:
+        client_id = int(view.get_client_id())
+    view_client(token, client_id)
+
+
+@client.command("update")
+@click.argument("client_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("-n", "--full-name", help="Client full name", required=False)
+@click.option("-e", "--email", help="Client email", required=False)
+@click.option("-p", "--phone", help="Client phone", required=False)
+def client_update(client_id: int, token: str | None, full_name: str | None, 
+                  email: str | None, phone: str | None) -> None:
+    """Update a client. Commercial users can only update their own clients."""
+    token = resolve_token(token)
+    update_client(token, client_id, full_name, email, phone)
+
+
+@client.command("delete")
+@click.argument("client_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def client_delete(client_id: int, token: str | None) -> None:
+    """Delete a client. Only management can delete clients."""
+    token = resolve_token(token)
+    delete_client(token, client_id)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def event(ctx: click.Context) -> None:
+    """Event management commands."""
+    if ctx.invoked_subcommand is None:
+        render_help_with_logo(ctx.command.get_help(ctx))
+
+
+attach_help(event)
+
+
+@event.command("create")
+@click.option("-t", "--token", help="Access token", required=False)
+def event_create(token: str | None) -> None:
+    """Create an event. Only management can create events."""
+    token = resolve_token(token)
+    create_event(token)
+
+
+@event.command("list")
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("--only-mine", is_flag=True, default=False, help="Show only events assigned to you")
+def event_list(token: str | None, only_mine: bool) -> None:
+    """List all events or, optionally, only the events assigned to the current commercial user."""
+    token = resolve_token(token)
+    list_events(token, filtered=only_mine)
+
+
+@event.command("view")
+@click.argument("event_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def event_view(event_id: int, token: str | None) -> None:
+    """View an event. Only management can view events."""
+    token = resolve_token(token)
+    view_event(token, event_id)
+
+
+@event.command("delete")
+@click.argument("event_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def event_delete(event_id: int, token: str | None) -> None:
+    """Delete an event. Only management can delete events."""
+    token = resolve_token(token)
+    delete_event(token, event_id)
+
+
+@event.command("update")
+@click.argument("event_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("-s", "--support-id", type=int, help="Support contact ID to assign", required=False)
+def event_update(event_id: int, token: str | None, support_id: int | None) -> None:
+    """Assign a support member to an event. Only management can use this command."""
+    token = resolve_token(token)
+    assign_support_to_event(token, event_id, support_id)
+
+
+@event.command("edit")
+@click.argument("event_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def event_edit(event_id: int, token: str | None) -> None:
+    """Edit all event details. Management and assigned support can edit events."""
+    token = resolve_token(token)
+    update_event(token, event_id)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def user(ctx: click.Context) -> None:
+    """User management commands."""
+    if ctx.invoked_subcommand is None:
+        render_help_with_logo(ctx.command.get_help(ctx))
+
+
+attach_help(user)
+
+
+@user.command("create")
+@click.option("-t", "--token", help="Access token with management role", required=False)
+@click.option("-u", "--username", help="Username for the new user", required=False)
+@click.option("-n", "--full-name", help="Full name of the new user", required=False)
+@click.option("-e", "--email", help="Email address of the new user", required=False)
+@click.option("-r", "--role-id", type=int, help="Role ID (1=Management, 2=Commercial, 3=Support)", required=False)
+def user_create(token: str | None, username: str | None, full_name: str | None, 
+                email: str | None, role_id: int | None) -> None:
+    """Create a new user. Only management can create users."""
+    token = resolve_token(token)
+    create_user(token, username, full_name, email, None, role_id)
+
+
+@user.command("list")
+@click.option("-t", "--token", help="Access token", required=False)
+def user_list(token: str | None) -> None:
+    """List all users. Only management can list users."""
+    token = resolve_token(token)
+    list_users(token)
+
+
+@user.command("view")
+@click.argument("user_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def user_view(user_id: int, token: str | None) -> None:
+    """View a user. Management can view any user, others can only view themselves."""
+    token = resolve_token(token)
+    view_user(token, user_id)
+
+
+@user.command("update")
+@click.argument("user_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("-u", "--username", help="New username", required=False)
+@click.option("-n", "--full-name", help="New full name", required=False)
+@click.option("-e", "--email", help="New email address", required=False)
+@click.option("-r", "--role-id", type=int, help="New role ID", required=False)
+def user_update(user_id: int, token: str | None, username: str | None, 
+                full_name: str | None, email: str | None, role_id: int | None) -> None:
+    """Update a user. Only management can update users."""
+    token = resolve_token(token)
+    update_user(token, user_id, username=username, full_name=full_name, 
+                email=email, role_id=role_id)
+
+
+@user.command("delete")
+@click.argument("user_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def user_delete(user_id: int, token: str | None) -> None:
+    """Delete a user. Only management can delete users."""
+    token = resolve_token(token)
+    delete_user(token, user_id)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def contract(ctx: click.Context) -> None:
+    """Contract management commands."""
+    if ctx.invoked_subcommand is None:
+        render_help_with_logo(ctx.command.get_help(ctx))
+
+
+attach_help(contract)
+
+
+@contract.command("create")
+@click.option("-t", "--token", help="Access token with management role", required=False)
+@click.option("-c", "--client-id", type=int, help="Client ID", required=False)
+@click.option("-s", "--commercial-id", type=int, help="Commercial ID", required=False)
+@click.option("--total-amount", type=float, help="Total contract amount", required=False)
+@click.option("--remaining-amount", type=float, help="Remaining amount", required=False)
+@click.option("--signed", is_flag=True, help="Mark contract as signed", required=False)
+@click.option("--fully-paid", is_flag=True, help="Mark contract as fully paid", required=False)
+def contract_create(token: str | None, client_id: int | None, commercial_id: int | None,
+                    total_amount: float | None, remaining_amount: float | None,
+                    signed: bool, fully_paid: bool) -> None:
+    """Create a contract linking a commercial with a client. Only management can create contracts."""
+    token = resolve_token(token)
+    create_contract(token, client_id, commercial_id, total_amount, remaining_amount, signed, fully_paid)
+
+
+@contract.command("list")
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("--only-mine", is_flag=True, default=False, help="Show only your contracts")
+def contract_list(token: str | None, only_mine: bool) -> None:
+    """List contracts. Access depends on user role."""
+    token = resolve_token(token)
+    list_contracts(token, filtered=only_mine)
+
+
+@contract.command("view")
+@click.argument("contract_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def contract_view(contract_id: int, token: str | None) -> None:
+    """View a contract. Access depends on user role."""
+    token = resolve_token(token)
+    view_contract(token, contract_id)
+
+
+@contract.command("update")
+@click.argument("contract_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+@click.option("--total-amount", type=float, help="Total contract amount", required=False)
+@click.option("--remaining-amount", type=float, help="Remaining amount", required=False)
+@click.option("--signed", is_flag=True, help="Mark contract as signed", required=False)
+@click.option("--fully-paid", is_flag=True, help="Mark contract as fully paid", required=False)
+def contract_update(contract_id: int, token: str | None, total_amount: float | None,
+                    remaining_amount: float | None, signed: bool, fully_paid: bool) -> None:
+    """Update a contract. Management and owning commercial can update contracts."""
+    token = resolve_token(token)
+    update_contract(token, contract_id, total_amount=total_amount, remaining_amount=remaining_amount,
+                    is_signed=signed, is_fully_paid=fully_paid)
+
+
+@contract.command("delete")
+@click.argument("contract_id", type=int)
+@click.option("-t", "--token", help="Access token", required=False)
+def contract_delete(contract_id: int, token: str | None) -> None:
+    """Delete a contract. Only management can delete contracts."""
+    token = resolve_token(token)
+    delete_contract(token, contract_id)
+

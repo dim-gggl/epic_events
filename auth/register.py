@@ -31,7 +31,7 @@ def create_user(access_token: str,
         role_id: The role id of the new user.
     """
     access_token_payload = verify_access_token(access_token)
-    if access_token_payload is None:
+    if not access_token_payload:
         view.wrong_message("OPERATION DENIED: Invalid access token.")
         return
 
@@ -39,6 +39,7 @@ def create_user(access_token: str,
     if int(role) != 1:
         view.wrong_message("OPERATION DENIED: You are not authorized to create a user.")
         return
+        
     if not username:
         username = controller.get_username()
     if not full_name:
