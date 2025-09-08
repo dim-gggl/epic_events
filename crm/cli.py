@@ -1,5 +1,6 @@
-import os
+import os, sys
 from pathlib import Path
+from io import StringIO
 
 import rich_click as click
 from rich.console import Console
@@ -11,14 +12,29 @@ from rich import box
 
 from crm.views.views import MainView
 from crm.views.config import epic_style, logo_style
-from db.crud_client import create_client, list_clients, view_client, update_client, delete_client
-from db.crud_event import create_event, list_events, view_event, update_event, delete_event, assign_support_to_event
-from db.crud_contract import create_contract, list_contracts, view_contract, update_contract, delete_contract
-from db.crud_user import create_user, list_users, view_user, update_user, delete_user
+from db.crud_client import (
+    create_client, list_clients, view_client, 
+    update_client, delete_client
+)
+from db.crud_event import (
+    create_event, list_events, view_event, 
+    update_event, delete_event, assign_support_to_event
+)
+from db.crud_contract import (
+    create_contract, list_contracts, view_contract, 
+    update_contract, delete_contract
+)
+from db.crud_user import (
+    create_user, list_users, view_user, 
+    update_user, delete_user
+)
 from auth.login import login as login_user
 from auth.logout import logout as logout_user
-from auth.jwt.token_storage import get_access_token, cleanup_token_file, get_user_info
+from auth.jwt.token_storage import (
+    get_access_token, cleanup_token_file, get_user_info
+    )
 from auth.jwt.refresh_token import refresh_access_token
+from crm.views.views import clear_console
 from exceptions import InvalidTokenError, ExpiredTokenError
 
 
@@ -35,7 +51,7 @@ click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 click.rich_click.SHOW_METAVARS_COLUMN = True
 click.rich_click.APPEND_METAVARS_HELP = True
 
-click.rich_click.STYLE_OPTION = "bold sky_blue1"
+click.rich_click.STYLE_OPTION = "bold medium_spring_green"
 click.rich_click.STYLE_ARGUMENT = "bold gold1"
 click.rich_click.STYLE_COMMAND = "bold orange_red1"
 click.rich_click.STYLE_SWITCH = "bold medium_spring_green"
@@ -49,7 +65,7 @@ click.rich_click.STYLE_HELPTEXT_FIRST_LINE = "bold grey100"
 click.rich_click.STYLE_HELPTEXT = "dim grey100"
 click.rich_click.STYLE_OPTION_DEFAULT = "dim italic grey96"
 
-
+@clear_console
 def build_logo_text() -> Text:
     text = LOGO_PATH.read_text(encoding="utf-8")
     t = Text(text, no_wrap=True)
@@ -64,7 +80,65 @@ def build_logo_text() -> Text:
     return t
 
 
-def render_help_with_logo(help_text: str) -> None:
+def format_help_with_styles(help_text: str) -> Text:
+    """Format help text with rich_click styles applied."""
+    styled_text = Text()
+    lines = help_text.split('\n')
+    
+    for line in lines:
+        line_stripped = line.strip()
+        
+        # Usage line
+        if line_stripped.startswith('Usage:'):
+            styled_text.append('Usage: ', style="bold gold1")  # STYLE_USAGE
+            usage_cmd = line_stripped.strip().split(' ')[1] + ' '
+            styled_text.append(usage_cmd, style="bold orange_red1")  
+            styled_text.append(' '.join(line_stripped.strip().split(' ')[2:]), style="dim medium_spring_green")
+            styled_text.append('\n')
+        
+        # Section headers (Commands:, Options:, etc.)
+        elif line_stripped.endswith(':') and not line.startswith('  '):
+            styled_text.append(line_stripped, style="bold medium_spring_green")  # STYLE_HEADER_TEXT
+            styled_text.append('\n')
+        
+        # Command/option items (indented lines with command names)
+        elif line.startswith('  ') and not line.startswith('    '):
+            parts = line_stripped.split(None, 1)
+            if parts:
+                # Command/option name
+                styled_text.append('  ', style="grey100")
+                styled_text.append(parts[0], style="bold orange_red1")  # STYLE_COMMAND
+                
+                # Description if present
+                if len(parts) > 1:
+                    styled_text.append('  ', style="grey100")
+                    styled_text.append(parts[1], style="dim grey100")  # STYLE_HELPTEXT
+                styled_text.append('\n')
+            else:
+                styled_text.append(line, style="grey100")
+                styled_text.append('\n')
+        
+        # Option lines with -- or -
+        elif ('--' in line_stripped or line_stripped.startswith('-')) and line.startswith('    '):
+            # This is likely an option description continuation
+            styled_text.append(line, style="dim grey100")  # STYLE_HELPTEXT
+            styled_text.append('\n')
+        
+        # Empty lines
+        elif not line_stripped:
+            styled_text.append('\n')
+        
+        # Regular description lines
+        else:
+            styled_text.append(line, style="grey100")  # STYLE_HELPTEXT
+            styled_text.append('\n')
+    
+    return styled_text
+
+@clear_console
+def render_help_with_logo(ctx: click.Context) -> None:
+    """Render help with logo on the left and dynamic help content on the right."""
+    
     try:
         raw_logo = LOGO_PATH.read_text(encoding="utf-8")
         max_logo_width = max((len(line) for line in raw_logo.splitlines()), default=40)
@@ -77,8 +151,43 @@ def render_help_with_logo(help_text: str) -> None:
     grid.add_column(ratio=1)
 
     left = Padding(logo, (0, 1))
+    
+    # Capture the help output by temporarily redirecting stdout
+    help_buffer = StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = help_buffer
+    
+    try:
+        # Generate help by using Click's built-in help mechanism
+        with click.Context(ctx.command, info_name=ctx.info_name, parent=ctx.parent) as help_ctx:
+            print(ctx.command.get_help(help_ctx))
+    except Exception:
+        # Fallback: create basic help content
+        print(f"Usage: {ctx.command.name} [OPTIONS] COMMAND [ARGS]...")
+        print()
+        if hasattr(ctx.command, 'commands') and ctx.command.commands:
+            print("Commands:")
+            for name, cmd in ctx.command.commands.items():
+                desc = cmd.short_help or cmd.help or ""
+                print(f"  {name:<12} {desc}")
+        if hasattr(ctx.command, 'params') and ctx.command.params:
+            print()
+            print("Options:")
+            for param in ctx.command.params:
+                if hasattr(param, 'opts') and param.opts:
+                    opts_str = ', '.join(param.opts)
+                    help_str = getattr(param, 'help', '') or ''
+                    print(f"  {opts_str:<20} {help_str}")
+    finally:
+        sys.stdout = old_stdout
+    
+    help_text = help_buffer.getvalue()
+    
+    # Clean and format the help text with rich_click styles
+    help_content = format_help_with_styles(help_text) if help_text else Text("No help available")
+    
     right = Panel(
-        Text.from_ansi(help_text),
+        help_content,
         box=box.ROUNDED,
         border_style=epic_style,
         padding=(1, 2),
@@ -121,18 +230,24 @@ def attach_help(group: click.Group) -> None:
             cmd = group.get_command(ctx, command)
             if not cmd:
                 print(f"Unknown command: {command}")
-                render_help_with_logo(group.get_help(ctx))
+                # Create a context for the parent group
+                parent_ctx = click.Context(group, parent=ctx.parent)
+                render_help_with_logo(parent_ctx)
             else:
-                render_help_with_logo(cmd.get_help(ctx))
+                # Create a context for the specific command
+                cmd_ctx = click.Context(cmd, parent=ctx)
+                render_help_with_logo(cmd_ctx)
         else:
-            render_help_with_logo(group.get_help(ctx))
+            # Create a context for the parent group
+            parent_ctx = click.Context(group, parent=ctx.parent)
+            render_help_with_logo(parent_ctx)
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is None:
-        render_help_with_logo(ctx.command.get_help(ctx))
+        render_help_with_logo(ctx)
 
 
 attach_help(cli)
@@ -206,7 +321,7 @@ def status() -> None:
 @click.pass_context
 def client(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is None:
-        render_help_with_logo(ctx.command.get_help(ctx))
+        render_help_with_logo(ctx)
 
 
 attach_help(client)
@@ -264,7 +379,7 @@ def client_delete(client_id: int, token: str | None) -> None:
 def event(ctx: click.Context) -> None:
     """Event management commands."""
     if ctx.invoked_subcommand is None:
-        render_help_with_logo(ctx.command.get_help(ctx))
+        render_help_with_logo(ctx)
 
 
 attach_help(event)
@@ -329,7 +444,7 @@ def event_edit(event_id: int, token: str | None) -> None:
 def user(ctx: click.Context) -> None:
     """User management commands."""
     if ctx.invoked_subcommand is None:
-        render_help_with_logo(ctx.command.get_help(ctx))
+        render_help_with_logo(ctx)
 
 
 attach_help(user)
@@ -394,7 +509,7 @@ def user_delete(user_id: int, token: str | None) -> None:
 def contract(ctx: click.Context) -> None:
     """Contract management commands."""
     if ctx.invoked_subcommand is None:
-        render_help_with_logo(ctx.command.get_help(ctx))
+        render_help_with_logo(ctx)
 
 
 attach_help(contract)

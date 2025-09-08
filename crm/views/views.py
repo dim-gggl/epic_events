@@ -139,7 +139,6 @@ class MainView:
     
     def success_message(self, message):
         self.display_message(message, "bold bright_green")
-        
 
     def wrong_message(self, message):
         self.display_message(message, "bold bright_red")
@@ -343,9 +342,9 @@ class MainView:
                 title="AUTHENTICATION",
                 subtitle=None, 
                 title_style="bold gold1",
-            )
+            ),
+            end="\n\n"
         )
-        print()
         
         # Show token expiration info only
         exp_text = refresh_exp.strftime("%d/%m/%Y") if hasattr(refresh_exp, "strftime") else str(refresh_exp).split(" ")[0]
@@ -357,9 +356,9 @@ class MainView:
                 title=Text("Session Info", style="bold bright_green"),
                 subtitle=None,
             ),
-            justify="center"
+            justify="center",
+            end="\n\n"
         )
-        print()
 
     @clear_console
     def display_logo(self, press_enter: bool = True, centered: bool = True):
@@ -420,14 +419,6 @@ class MainView:
     @clear_console
     def display_event_detail(self, access_token, event_id):
         self.display_details(access_token, event_id, Event)
-
-    @clear_console
-    def display_commands(commands):
-        screen = Table.grid()
-        screen.add_column()
-        screen.add_column()
-        for com in commands:
-            screen.add_row(f"{com}", f"{com.help}")
         
     @clear_console
     def display_details(self, access_token, obj_id, obj_class, fields=None):

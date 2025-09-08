@@ -2,7 +2,8 @@ from auth.jwt.token_storage import get_user_info, cleanup_token_file
 from db.config import Session
 from crm.models import User
 from crm.views.views import MainView
-from datetime import datetime
+from datetime import datetime, timezone
+
 
 view = MainView()
 

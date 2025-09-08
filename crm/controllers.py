@@ -37,8 +37,7 @@ def _ask(
     - required_msg: message shown if empty input
     - invalid_msg: message shown if cast/validation fails
     """
-    valid_data = False
-    while not valid_data:
+    while True:
         raw = prompt()
         if strip:
             raw = raw.strip()
@@ -50,13 +49,9 @@ def _ask(
         except Exception:
             view.wrong_message(invalid_msg or required_msg)
             continue
-        if not validate(value):
-            view.wrong_message(invalid_msg or required_msg)
-            continue
-            
-        if validate(value):
-            valid_data = True
-        return value
+        if validate is None or validate(value):
+            return value
+        view.wrong_message(invalid_msg or required_msg)
 
 
 def _to_int(s: str) -> int:
@@ -79,6 +74,39 @@ def _to_bool_yes_no(s: str) -> bool:
     if s in {"n", "N", "no", "No", "NO"}:
         return False
     raise ValueError("Expected yes/no")
+
+
+def _ask_optional(
+    prompt: Callable[[], str],
+    *,
+    cast: Callable[[str], Any] = lambda s: s,
+    validate: Optional[Callable[[Any], bool]] = None,
+    invalid_msg: Optional[str] = None,
+    strip: bool = True,
+) -> Any:
+    """
+    Ask for optional input. Returns None if empty input.
+    - prompt: function that returns a raw input string
+    - cast: convert raw string to a typed value (may raise)
+    - validate: predicate on the casted value
+    - invalid_msg: message shown if cast/validation fails
+    """
+    while True:
+        raw = prompt()
+        if strip:
+            raw = raw.strip()
+        if not raw:
+            return None
+        try:
+            value = cast(raw)
+        except Exception:
+            if invalid_msg:
+                view.wrong_message(invalid_msg)
+            continue
+        if validate is None or validate(value):
+            return value
+        if invalid_msg:
+            view.wrong_message(invalid_msg)
 
 
 class MainController:
@@ -144,7 +172,7 @@ class MainController:
 
         commercial_id = _ask(
             view.get_commercial_id,
-            cast=_to_int(n=None),
+            cast=_to_int,
             required_msg="All collaborators have an ID.",
             invalid_msg="Commercial ID must be a positive integer.",
         )
@@ -280,7 +308,13 @@ class MainController:
 
         support_contact_id = view.get_support_contact_id().strip()
         if not support_contact_id:
-            support_contact_id is None
+            support_contact_id = None
+        else:
+            try:
+                support_contact_id = int(support_contact_id)
+            except ValueError:
+                view.wrong_message("Support contact ID must be an integer.")
+                support_contact_id = None
 
         title = _ask(
             view.get_title,
@@ -305,20 +339,29 @@ class MainController:
             invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
         )
 
-        if end_date < start_date:
+        while end_date < start_date:
             view.wrong_message("End date must be on or after start date.")
-            end_date = _ask(
-                view.get_end_date,
-                cast=_to_date,
-                required_msg=f"End date is required (format: {DATE_FMT}).",
-                invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+            view.wrong_message("Please enter a new end date or start date.")
+            
+            choice = _ask(
+                lambda: view.get_input("Do you want to change the (e)nd date or (s)tart date? "),
+                required_msg="Please choose 'e' for end date or 's' for start date.",
+                invalid_msg="Invalid choice. Enter 'e' for end date or 's' for start date.",
+                validate=lambda x: x.lower() in ['e', 's', 'end', 'start']
             )
-            if end_date < start_date:
-                view.wrong_message("End date must be on or after start date.")
+            
+            if choice.lower() in ['e', 'end']:
                 end_date = _ask(
                     view.get_end_date,
                     cast=_to_date,
                     required_msg=f"End date is required (format: {DATE_FMT}).",
+                    invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+                )
+            else:  # start date
+                start_date = _ask(
+                    view.get_start_date,
+                    cast=_to_date,
+                    required_msg=f"Start date is required (format: {DATE_FMT}).",
                     invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
                 )
 
