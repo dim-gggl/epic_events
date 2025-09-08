@@ -33,62 +33,43 @@ This way, it is possible to
 epic-events help
 ```
 
-## Commands
+## Ressources & Commands
 
-#### `init-db`
+The different ressources available in Epic Events database are:
 
-This is the first command that should be launched after installation. It initializes the database and sets up the necessary data required by the app to start running (it initializes the role IDs, allowing you to create users and start providing them with roles).
+- `Users` (Only Management and admins can see all users)
+- `Clients`
+- `Contracts`
+- `Events`
 
-#### `init-manager`
+Each ressource has its own command represented by its name in lowercase and singular form (e.g. `Users` -> `user`).  
+  
+And each must be completed with the following action commands:
 
-This command can only be run with root privileges (`sudo` on Unix systems). It allows you to create a user with the management role, typically a user with the permission to create other user profiles.
+- `list` (to see a list of all the entries for the ressources in a reduced format)
+- `view` (to see the details of a specific entry)
+- `create` (to create a new entry)
+- `update` (to update an existing entry)
+- `delete` (to delete an existing entry)
+- `help` (to see the help menu for the command)
+  
+---  
+So, if we want the list of all the clients saved in the database, we can do:
 
-**Usage:** 
 ```bash
-# With sudo we have to use the original command
-sudo python epic_events.py init-manager -u [USERNAME] -n [FULL_NAME] -e [EMAIL]
-```
-`sudo` will ask you for your root password, then epic-events will ask for the password of the manager user that is being created.
-
-#### `create-user`
-
-This command requires you to be connected to the CRM and to be a manager user. In order to make it work, it should receive as an argument an access token proving the role of the requesting user.
-
-**Usage:** 
-```bash
-epic-events create-user -t [ACCESS_TOKEN] -u [USERNAME] -n [FULL_NAME] -e [EMAIL] -r [ROLE_ID]
-```
-
-#### `login`
-
-Authenticate a user and obtain an access token.
-
-**Usage:**
-You can provide your username as an argument or be prompted for it.
-```bash
-epic-events login -u [USERNAME]
+epic-events client list
 ```
 
-#### `create-client`
+Here is what should appear:
 
-Create a new client. This command requires a commercial user token, otherwise it will display an error message.
-The access token is mandatory.
+![](media/epic-ev-clients.svg)
 
-The other arguments are optional. If they are not provided, the user will be prompted to enter them.
+And from here, we could decide to see the details from the client with the ID #12:
 
-**Usage:**
 ```bash
-epic-events create-client -t [ACCESS_TOKEN] -n [FULL_NAME] -e [EMAIL] -p [PHONE] -c [COMPANY_ID] -d [FIRST_CONTACT_DATE]
+epic-events client view -i 12
 ```
 
-#### `list-clients`
+And here's what the oupput should look like :
 
-List all clients or, optionally, only the clients assigned to the current commercial user. 
-This command is available for all users in readonly, requiring at least to be logged in.
-access token required but no role check is performed.
-However, if the user is a commercial user, the command can be filtered to only list the clients assigned to the current commercial user. In this case, the access token must be a commercial user token, and the filtered must be set to true : `-f true`.
-
-**Usage:**
-```bash
-epic-events list-clients -t [ACCESS_TOKEN] -f [FILTERED]
-```
+![](./media/epic-ev-client.svg)
