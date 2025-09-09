@@ -1,5 +1,5 @@
 
-from crm.cli import cli
+from crm.cli import command as cli
 from sentry.observability import init_sentry
 
 

@@ -245,15 +245,15 @@ def attach_help(group: click.Group) -> None:
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def command(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is None:
         render_help_with_logo(ctx)
 
 
-attach_help(cli)
+attach_help(command)
 
 
-@cli.command()
+@command.command()
 @click.option("-u", "--username", help="Login ID", required=False)
 @click.option("-p", "--password", help="Password", required=False)
 def login(username: str | None, password: str | None) -> None:
@@ -261,13 +261,13 @@ def login(username: str | None, password: str | None) -> None:
     login_user(username, password)
 
 
-@cli.command()
+@command.command()
 def logout() -> None:
     """Logout and clear authentication session."""
     logout_user()
 
 
-@cli.command()  
+@command.command()  
 @click.option("-r", "--refresh-token", help="Raw refresh token", required=True)
 def refresh(refresh_token: str) -> None:
     """Refresh access token using refresh token."""
@@ -288,7 +288,7 @@ def refresh(refresh_token: str) -> None:
         view.wrong_message(f"Refresh operation failed: {str(e)}")
 
 
-@cli.command()
+@command.command()
 def status() -> None:
     """Check current authentication status."""
     try:
@@ -317,7 +317,7 @@ def status() -> None:
         view.wrong_message(f"Status check failed: {str(e)}")
 
 
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def client(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -374,7 +374,7 @@ def client_delete(client_id: int, token: str | None) -> None:
     delete_client(token, client_id)
 
 
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def event(ctx: click.Context) -> None:
     """Event management commands."""
@@ -433,13 +433,14 @@ def event_update(event_id: int, token: str | None, support_id: int | None) -> No
 @event.command("edit")
 @click.argument("event_id", type=int)
 @click.option("-t", "--token", help="Access token", required=False)
-def event_edit(event_id: int, token: str | None) -> None:
+@click.option("--support_id", type=int, help="Support contact ID to assign", required=False)
+def event_edit(event_id: int, token: str | None, support_id: int | None) -> None:
     """Edit all event details. Management and assigned support can edit events."""
     token = resolve_token(token)
     update_event(token, event_id)
 
 
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def user(ctx: click.Context) -> None:
     """User management commands."""
@@ -451,7 +452,7 @@ attach_help(user)
 
 
 @user.command("create")
-@click.option("-t", "--token", help="Access token with management role", required=False)
+@click.option("-t", "--token", help="Access token", required=False)
 @click.option("-u", "--username", help="Username for the new user", required=False)
 @click.option("-n", "--full-name", help="Full name of the new user", required=False)
 @click.option("-e", "--email", help="Email address of the new user", required=False)
@@ -504,7 +505,7 @@ def user_delete(user_id: int, token: str | None) -> None:
     delete_user(token, user_id)
 
 
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def contract(ctx: click.Context) -> None:
     """Contract management commands."""
@@ -516,7 +517,7 @@ attach_help(contract)
 
 
 @contract.command("create")
-@click.option("-t", "--token", help="Access token with management role", required=False)
+@click.option("-t", "--token", help="Access token", required=False)
 @click.option("-c", "--client-id", type=int, help="Client ID", required=False)
 @click.option("-s", "--commercial-id", type=int, help="Commercial ID", required=False)
 @click.option("--total-amount", type=float, help="Total contract amount", required=False)
@@ -533,11 +534,11 @@ def contract_create(token: str | None, client_id: int | None, commercial_id: int
 
 @contract.command("list")
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("--only-mine", is_flag=True, default=False, help="Show only your contracts")
-def contract_list(token: str | None, only_mine: bool) -> None:
+@click.option("--own", is_flag=True, default=False, help="Show only the contracts of the current user")
+def contract_list(token: str | None, own: bool) -> None:
     """List contracts. Access depends on user role."""
     token = resolve_token(token)
-    list_contracts(token, filtered=only_mine)
+    list_contracts(token, filtered=own)
 
 
 @contract.command("view")
@@ -571,4 +572,8 @@ def contract_delete(contract_id: int, token: str | None) -> None:
     """Delete a contract. Only management can delete contracts."""
     token = resolve_token(token)
     delete_contract(token, contract_id)
+
+
+# Export the main CLI command group
+cli = command
 
