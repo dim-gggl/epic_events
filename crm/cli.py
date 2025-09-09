@@ -36,6 +36,9 @@ from auth.jwt.token_storage import (
 from auth.jwt.refresh_token import refresh_access_token
 from crm.views.views import clear_console
 from exceptions import InvalidTokenError, ExpiredTokenError
+from sentry.observability import log_cli_command, log_error, log_operation
+from db.create_manager import init_manager
+from db.create_tables import init_db
 
 
 LOGO_PATH = Path("crm/views/logo.txt")
@@ -44,26 +47,10 @@ print = console.print
 
 view = MainView()
 
-click.rich_click.USE_RICH_MARKUP = True
-click.rich_click.USE_MARKDOWN = True
-click.rich_click.SHOW_ARGUMENTS = True
-click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
-click.rich_click.SHOW_METAVARS_COLUMN = True
-click.rich_click.APPEND_METAVARS_HELP = True
 
-click.rich_click.STYLE_OPTION = "bold medium_spring_green"
-click.rich_click.STYLE_ARGUMENT = "bold gold1"
-click.rich_click.STYLE_COMMAND = "bold orange_red1"
-click.rich_click.STYLE_SWITCH = "bold medium_spring_green"
-click.rich_click.STYLE_METAVAR = "dim italic grey100"
-click.rich_click.STYLE_METAVAR_BRACKET = "dim white"
-click.rich_click.STYLE_HEADER_TEXT = "bold medium_spring_green"
-click.rich_click.STYLE_FOOTER_TEXT = "dim"
-click.rich_click.STYLE_USAGE = "bold gold1"
-click.rich_click.STYLE_USAGE_COMMAND = "bold orange_red1"
-click.rich_click.STYLE_HELPTEXT_FIRST_LINE = "bold grey100"
-click.rich_click.STYLE_HELPTEXT = "dim grey100"
-click.rich_click.STYLE_OPTION_DEFAULT = "dim italic grey96"
+#########################################################
+#                   LOGO
+#########################################################
 
 @clear_console
 def build_logo_text() -> Text:
@@ -79,6 +66,10 @@ def build_logo_text() -> Text:
     t.stylize(logo_style, 225, -1)
     return t
 
+
+#########################################################
+#                   HELP
+#########################################################
 
 def format_help_with_styles(help_text: str) -> Text:
     """Format help text with rich_click styles applied."""
@@ -142,7 +133,17 @@ def render_help_with_logo(ctx: click.Context) -> None:
     try:
         raw_logo = LOGO_PATH.read_text(encoding="utf-8")
         max_logo_width = max((len(line) for line in raw_logo.splitlines()), default=40)
-    except Exception:
+    except Exception as e:
+        log_error(
+            e,
+            context={
+                "operation": "read logo, max-width logo",
+                "commands": [
+                    LOGO_PATH.read_text(encoding="utf-8"), 
+                    max((len(line) for line in raw_logo.splitlines()), default=40)
+                ]
+            }
+        )
         max_logo_width = 40
 
     logo = build_logo_text()
@@ -152,36 +153,33 @@ def render_help_with_logo(ctx: click.Context) -> None:
 
     left = Padding(logo, (0, 1))
     
-    # Capture the help output by temporarily redirecting stdout
-    help_buffer = StringIO()
-    old_stdout = sys.stdout
-    sys.stdout = help_buffer
-    
+    # Generate help content directly
     try:
         # Generate help by using Click's built-in help mechanism
         with click.Context(ctx.command, info_name=ctx.info_name, parent=ctx.parent) as help_ctx:
-            print(ctx.command.get_help(help_ctx))
-    except Exception:
+            help_text = ctx.command.get_help(help_ctx)
+    except Exception as e:
         # Fallback: create basic help content
-        print(f"Usage: {ctx.command.name} [OPTIONS] COMMAND [ARGS]...")
-        print()
+        help_text = f"Usage: {ctx.command.name} [OPTIONS] COMMAND [ARGS]...\n{e}"
+        log_error(
+            e,
+            context={
+                "operation": "cli_help",
+                "command": ctx.command.name
+            }
+        )
         if hasattr(ctx.command, 'commands') and ctx.command.commands:
-            print("Commands:")
+            help_text += "\nCommands:\n"
             for name, cmd in ctx.command.commands.items():
                 desc = cmd.short_help or cmd.help or ""
-                print(f"  {name:<12} {desc}")
+                help_text += f"  {name:<12} {desc}\n"
         if hasattr(ctx.command, 'params') and ctx.command.params:
-            print()
-            print("Options:")
+            help_text += "\nOptions:\n"
             for param in ctx.command.params:
                 if hasattr(param, 'opts') and param.opts:
                     opts_str = ', '.join(param.opts)
                     help_str = getattr(param, 'help', '') or ''
-                    print(f"  {opts_str:<20} {help_str}")
-    finally:
-        sys.stdout = old_stdout
-    
-    help_text = help_buffer.getvalue()
+                    help_text += f"  {opts_str:<20} {help_str}\n"
     
     # Clean and format the help text with rich_click styles
     help_content = format_help_with_styles(help_text) if help_text else Text("No help available")
@@ -198,6 +196,10 @@ def render_help_with_logo(ctx: click.Context) -> None:
     grid.add_row(left, right)
     console.print(grid)
 
+
+#########################################################
+#                   TOKEN
+#########################################################
 
 def resolve_token(token: str | None) -> str:
     """
@@ -243,15 +245,46 @@ def attach_help(group: click.Group) -> None:
             render_help_with_logo(parent_ctx)
 
 
+#########################################################
+#                   COMMAND
+#########################################################
+
 @click.group(invoke_without_command=True)
 @click.pass_context
 def command(ctx: click.Context) -> None:
+    """Show help menu then exit."""
     if ctx.invoked_subcommand is None:
         render_help_with_logo(ctx)
 
 
 attach_help(command)
 
+#########################################################
+#                   DB CREATE
+#########################################################
+
+@command.command()
+def db_create() -> None:
+    """Create the database."""
+    init_db()
+
+#########################################################
+#                   MANAGER CREATE
+#########################################################
+
+@command.command()
+@click.option("-u", "--username", help="Login ID", required=False)
+@click.option("-n", "--full-name", help="Full name", required=False)
+@click.option("-e", "--email", help="Email", required=False)
+def manager_create(username: str | None=None, 
+                full_name: str | None=None, 
+                email: str | None=None):
+    """Create a new manager."""
+    init_manager(username, full_name, email)
+
+#########################################################
+#                   LOGIN
+#########################################################
 
 @command.command()
 @click.option("-u", "--username", help="Login ID", required=False)
@@ -259,13 +292,20 @@ attach_help(command)
 def login(username: str | None, password: str | None) -> None:
     """Login to the Epic Events CRM system."""
     login_user(username, password)
-
+        
+#########################################################
+#                   LOGOUT
+#########################################################
 
 @command.command()
 def logout() -> None:
     """Logout and clear authentication session."""
     logout_user()
 
+
+#########################################################
+#                   REFRESH
+#########################################################
 
 @command.command()  
 @click.option("-r", "--refresh-token", help="Raw refresh token", required=True)
@@ -287,6 +327,10 @@ def refresh(refresh_token: str) -> None:
     except Exception as e:
         view.wrong_message(f"Refresh operation failed: {str(e)}")
 
+
+#########################################################
+#                   STATUS
+#########################################################
 
 @command.command()
 def status() -> None:
@@ -317,6 +361,10 @@ def status() -> None:
         view.wrong_message(f"Status check failed: {str(e)}")
 
 
+#########################################################
+#                   CLIENT
+#########################################################
+
 @command.group(invoke_without_command=True)
 @click.pass_context
 def client(ctx: click.Context) -> None:
@@ -331,16 +379,16 @@ attach_help(client)
 @client.command("create")
 @click.option("-t", "--token", help="Access token with commercial role", required=False)
 def client_create(token: str | None) -> None:
-    """Client management commands."""
+    """Create a new client profile. (Only commercial can create clients)"""
     token = resolve_token(token)
-    create_client(token)
+    create_client(access_token=token)
 
 
 @client.command("list")
 @click.option("-t", "--token", help="Access token", required=False)
 @click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
 def client_list(token: str | None, only_mine: bool) -> None:
-    """Clients appearing as a list when on fumait tours les genard"""
+    """Display a list of all clients. Or only the clients of the current commercial user."""
     token = resolve_token(token)
     list_clients(token, filtered=only_mine)
 
@@ -349,6 +397,7 @@ def client_list(token: str | None, only_mine: bool) -> None:
 @click.option("-t", "--token", help="Access token", required=False)
 @click.option("-i", "--client-id", type=int, required=False, help="Client ID")
 def client_view(token: str | None, client_id: int | None) -> None:
+    """View a client profile in details."""
     token = resolve_token(token)
     if client_id is None:
         client_id = int(view.get_client_id())
@@ -363,7 +412,7 @@ def client_view(token: str | None, client_id: int | None) -> None:
 @click.option("-p", "--phone", help="Client phone", required=False)
 def client_update(client_id: int, token: str | None, full_name: str | None, 
                   email: str | None, phone: str | None) -> None:
-    """Update a client. Commercial users can only update their own clients."""
+    """Update a client profile. Only commercial users can update their own clients."""
     token = resolve_token(token)
     update_client(token, client_id, full_name, email, phone)
 
@@ -372,10 +421,13 @@ def client_update(client_id: int, token: str | None, full_name: str | None,
 @click.argument("client_id", type=int)
 @click.option("-t", "--token", help="Access token", required=False)
 def client_delete(client_id: int, token: str | None) -> None:
-    """Delete a client. Only management can delete clients."""
+    """Delete a client profile. Only management can delete clients."""
     token = resolve_token(token)
     delete_client(token, client_id)
 
+#########################################################
+#                   EVENT
+#########################################################
 
 @command.group(invoke_without_command=True)
 @click.pass_context
@@ -400,7 +452,7 @@ def event_create(token: str | None) -> None:
 @click.option("-t", "--token", help="Access token", required=False)
 @click.option("--only-mine", is_flag=True, default=False, help="Show only events assigned to you")
 def event_list(token: str | None, only_mine: bool) -> None:
-    """List all events or, optionally, only the events assigned to the current commercial user."""
+    """List all events or, optionally, only the events assigned to the current support user."""
     token = resolve_token(token)
     list_events(token, filtered=only_mine)
 
@@ -409,7 +461,7 @@ def event_list(token: str | None, only_mine: bool) -> None:
 @click.argument("event_id", type=int)
 @click.option("-t", "--token", help="Access token", required=False)
 def event_view(event_id: int, token: str | None) -> None:
-    """View an event. Only management can view events."""
+    """View an event in details."""
     token = resolve_token(token)
     view_event(token, event_id)
 
@@ -442,6 +494,10 @@ def event_edit(event_id: int, token: str | None, support_id: int | None) -> None
     token = resolve_token(token)
     update_event(token, event_id)
 
+
+#########################################################
+#                   USER
+#########################################################
 
 @command.group(invoke_without_command=True)
 @click.pass_context
@@ -508,6 +564,10 @@ def user_delete(user_id: int, token: str | None) -> None:
     delete_user(token, user_id)
 
 
+#########################################################
+#                   CONTRACT
+#########################################################
+
 @command.group(invoke_without_command=True)
 @click.pass_context
 def contract(ctx: click.Context) -> None:
@@ -539,7 +599,7 @@ def contract_create(token: str | None, client_id: int | None, commercial_id: int
 @click.option("-t", "--token", help="Access token", required=False)
 @click.option("--own", is_flag=True, default=False, help="Show only the contracts of the current user")
 def contract_list(token: str | None, own: bool) -> None:
-    """List contracts. Access depends on user role."""
+    """List contracts."""
     token = resolve_token(token)
     list_contracts(token, filtered=own)
 
@@ -562,7 +622,7 @@ def contract_view(contract_id: int, token: str | None) -> None:
 @click.option("--fully-paid", is_flag=True, help="Mark contract as fully paid", required=False)
 def contract_update(contract_id: int, token: str | None, total_amount: float | None,
                     remaining_amount: float | None, signed: bool, fully_paid: bool) -> None:
-    """Update a contract. Management and owning commercial can update contracts."""
+    """Update a contract. Management and owning commercial users can update contracts."""
     token = resolve_token(token)
     update_contract(token, contract_id, total_amount=total_amount, remaining_amount=remaining_amount,
                     is_signed=signed, is_fully_paid=fully_paid)

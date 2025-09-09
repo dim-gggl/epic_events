@@ -6,6 +6,7 @@ from crm.permissions import login_required, require_permission, has_permission
 from db.config import Session
 from auth.login import login
 from sqlalchemy import select
+from sentry.observability import log_database_operation, log_error, log_operation, log_permission_check
 
 view = MainView()
 controller = MainController()
@@ -14,35 +15,45 @@ controller = MainController()
 def create_client(access_token: str):
     with Session() as session:
         user_id = int(verify_access_token(access_token)["sub"])
-        client_data = controller.get_client_data()
-        client = Client(
-            full_name=client_data["full_name"],
-            email=client_data["email"],
-            phone=client_data["phone"],
-            company_id=client_data["company_id"],
-            commercial_id=user_id,
-            first_contact_date=client_data["first_contact_date"],
-            last_contact_date=client_data["last_contact_date"]
-        )
-        session.add(client)
-        session.commit()
-        view.success_message(
-            f"Your client ({client.full_name}) has been created successfully."
-        )
+        try:
+            client_data = controller.get_client_data()
+            client = Client(
+                full_name=client_data["full_name"],
+                email=client_data["email"],
+                phone=client_data["phone"],
+                company_id=client_data["company_id"],
+                commercial_id=user_id,
+                first_contact_date=client_data["first_contact_date"],
+                last_contact_date=client_data["last_contact_date"]
+            )
+            session.add(client)
+            session.commit()
+        
+            view.success_message(
+                f"Your client ({client.full_name}) has been created successfully."
+            )
+        
+        except Exception as e:
+            view.wrong_message(f"Failed to create client: {str(e)}")
 
 @login_required
 def list_clients(access_token: str, filtered: bool = False) -> None:
-    with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
-        if filtered:
-            clients = session.scalars(
-                select(Client).filter(Client.commercial_id == user_id)
-            ).all()
-        else:
-            clients = session.scalars(select(Client)).all()
-        view.display_list_clients(clients)
+    try:
+        with Session() as session:
+            user_id = int(verify_access_token(access_token)["sub"])
+            
+            if filtered:
+                clients = session.scalars(
+                    select(Client).filter(Client.commercial_id == user_id)
+                ).all()
+            else:
+                clients = session.scalars(select(Client)).all()  
+            view.display_list_clients(clients)
+            
+    except Exception as e:
+        view.wrong_message(f"Failed to list clients: {str(e)}")
 
-@login_required
+@require_permission("client:update:own")
 def update_client(access_token: str, 
                   client_id: int=None, 
                   full_name: str=None, 
@@ -113,30 +124,7 @@ def view_client(access_token: str, client_id: int):
         
         if not client:
             view.wrong_message("OPERATION DENIED: Client not found.")
-            return
-            
-        # Check permissions
-        if has_permission(access_token, "client:view:any"):
-            # Management can view any client
-            pass
-        elif has_permission(access_token, "client:view:own"):
-            # Commercial can only view their own clients
-            if client.commercial_id != user_id:
-                view.wrong_message(
-                    "OPERATION DENIED: You can only view your own clients."
-                )
-                return
-        elif has_permission(access_token, "client:view:assigned"):
-            # Support can view clients for events they are assigned to
-            # For now, we'll allow viewing - this would need more complex logic
-            # to check if they have events assigned for this client
-            pass
-        else:
-            view.wrong_message(
-                "OPERATION DENIED: You don't have permission to view clients."
-            )
-            return
-            
+            return            
         view.display_client_detail(access_token, client)
 
 @require_permission("client:delete")

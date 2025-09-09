@@ -9,7 +9,8 @@ from sqlalchemy import select
 view = MainView()
 controller = MainController()
 
-@login_required
+
+@require_permission("event:create")
 def create_event(access_token: str):
     with Session() as session:
         user_id = int(verify_access_token(access_token)["sub"])
@@ -21,6 +22,21 @@ def create_event(access_token: str):
             return
             
         event_data = controller.get_event_data()
+        
+        # Check if the contract exists and is signed
+        from crm.models import Contract
+        contract = session.scalars(
+            select(Contract).filter(Contract.id == event_data["contract_id"])
+        ).one_or_none()
+        
+        if not contract:
+            view.wrong_message("OPERATION DENIED: Contract not found.")
+            return
+            
+        if not contract.is_signed:
+            view.wrong_message("OPERATION DENIED: Cannot create event for an unsigned contract.")
+            return
+            
         event = Event(
             contract_id=event_data["contract_id"],
             title=event_data["title"],
@@ -35,7 +51,7 @@ def create_event(access_token: str):
         session.commit()
         view.success_message(f"Event ({event.title}) has been created successfully.")
 
-@login_required
+@require_permission("event:update")
 def update_event(access_token: str, event_id: int):
     with Session() as session:
         user_id = int(verify_access_token(access_token)["sub"])

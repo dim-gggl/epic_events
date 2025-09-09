@@ -11,7 +11,8 @@ from sqlalchemy import select
 view = MainView()
 controller = MainController()
 
-@require_permission("contract:create:any")
+
+@require_permission("contract:create")
 def create_contract(access_token: str, 
                     client_id: int=None, 
                     commercial_id: int=None, 
@@ -120,7 +121,7 @@ def view_contract(access_token: str, contract_id: int):
             
         view.display_contract(contract)
 
-@login_required
+@require_permission("contract:update")
 def update_contract(access_token: str, contract_id: int, **kwargs):
     """Update a contract based on user permissions."""
     with Session() as session:

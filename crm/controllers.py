@@ -15,6 +15,7 @@ from exceptions import InvalidTokenError, OperationDeniedError
 from crm.views.views import MainView as view
 from db.config import Session
 from crm.models import Client
+from sentry.observability import log_error, log_operation
 
 view = view()
 
@@ -150,14 +151,38 @@ class MainController:
         Get access token payload from stored token.
         Never prompts user for token - uses temporary file storage only.
         """
-        from auth.jwt.token_storage import get_access_token
-        
-        access_token = get_access_token()
-        if not access_token:
-            raise InvalidTokenError("No authentication token available. Please login first.")
+        try:
+            from auth.jwt.token_storage import get_access_token
             
-        payload = verify_access_token(access_token)
-        return payload
+            access_token = get_access_token()
+            if not access_token:
+                log_operation(
+                    "token_retrieval_failed",
+                    success=False,
+                    context={"reason": "no_token_available"}
+                )
+                raise InvalidTokenError("No authentication token available. Please login first.")
+                
+            payload = verify_access_token(access_token)
+            
+            # Log successful token retrieval
+            log_operation(
+                "token_retrieval_success",
+                success=True,
+                context={"user_id": payload.get('sub') if isinstance(payload, dict) else None}
+            )
+            
+            return payload
+            
+        except Exception as e:
+            log_error(
+                e,
+                context={
+                    "operation": "get_access_token_payload",
+                    "error_type": "token_retrieval_error"
+                }
+            )
+            raise
 
     def get_client_id(self) -> int:
         client_id = _ask(

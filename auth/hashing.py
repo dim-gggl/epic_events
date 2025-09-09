@@ -1,6 +1,5 @@
 import bcrypt
-
-from exceptions import EpicEventsError
+import getpass
 
 
 def hash_password(password: str) -> str:
@@ -16,3 +15,6 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 
+if __name__ == "__main__":
+    pwd = getpass.getpass("Password: ")
+    print(hash_password(pwd))

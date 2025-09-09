@@ -1,5 +1,6 @@
 import getpass
 import sys
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -17,15 +18,22 @@ from crm.models import Client, Event
 from auth.validators import is_valid_password
 
 
+#########################################################
+#                   Console
+#########################################################
 console = Console()
 clear = console.clear
 print = console.print
 
 def clear_console(func):
     def wrapper(*args, **kwargs):
-        console.clear()
+        clear()
         return func(*args, **kwargs)
     return wrapper
+
+#########################################################
+#                   Layout tools
+#########################################################
 
 def centered(content: Text | str, style: Style=None) -> Align:
     return Align.center(content, style=style)
@@ -63,7 +71,7 @@ def banner(content,
         text.append(content, style=style)
         text.append("\n")  
         text.append(content2, style=style2)
-        text.justify = justify  # Apply justification to the main text
+        text.justify = justify
     else:
         text = Text(content, style=style, justify=justify)
         
@@ -91,136 +99,162 @@ def prompt(content, style="bold grey100", border_style="bright medium_spring_gre
     """The prompt function is used to stylize the input prompt"""
     return Panel.fit(Text(content, style=style), border_style=border_style)
 
+
+#########################################################
+#                   MainView
+#########################################################
 class MainView:
     """The MainView class is used to display the main view of the application."""
 
+    # Private methods to hide the password while promptin.
+    @clear_console
     def _prompt_password(self, prompt_title: str = "Password") -> str:
         """Rich UI when available + secure fallback to getpass."""
-        use_rich = sys.stdin.isatty() and sys.stdout.isatty()
-        if use_rich:
-            console = Console()
-            first = "Enter your password"
-            second = "Confirm your password"
-            renderable = prompt(first, style="bold grey100")
-            renderable2 = prompt(second, style="bold ceinture")
+        pwd = console.input("Password: ", password=True).strip()
+        pwd_conf = console.input("Confirm password: ", password=True).strip()
+        if pwd == pwd_conf:
+            return pwd
+        else:
+            self.wrong_message("Passwords do not match.")
+            return self._prompt_password()
+        return console.input("Password: ", password=True)
 
-            try:
-                pwd = console.input(renderable, password=True).strip()
-                pwd_conf = console.input(renderable2).strip()
-                if pwd == pwd_conf:
-                    return pwd
-                else:
-                    view.wrong_message("Passwords do not match.")
-                    return self._prompt_password()
-            except Exception as e:
-                # Any terminal edge case → fall back
-                view.wrong_message("An error occurred while entering the password.")
-                return self._prompt_password()
-
-        # Fallback stdlib
-        try:
-            return getpass.getpass("Password: ")
-        except (Exception,):
-            print("WARNING: No TTY detected; input will be visible.")
-            return input("Password: ")
-
-
+    # Abstract methods to display messages in a consistent way.
+    @clear_console
     def display_message(self, message, style=epic_style):
-        clear()
         print(Panel.fit(Text(message, style=style, justify="center"), padding=(1, 6)), justify="center")
         print("\n")
         print(Panel.fit(Text("Press ENTER", style=style, justify="center"), padding=(0, 6)), justify="center")
         input()
-    
-    def input(self, prompt):
-        prompt_text = Text(prompt, style="bold grey100", justify="center")
-        email = Align.center(prompt_text)
-        return console.input(email)
-    
+
+    # Abstract method to get input with style.
+    @clear_console
+    def input(self, prompt, password=False, justify="center"):
+        if password:
+            return getpass.getpass(prompt)
+        return input(prompt)
+
+    #########################################################
+    #                   Messages
+    #########################################################
+    @clear_console
     def success_message(self, message):
-        self.display_message(message, "bold bright_green")
+        self.display_message(message, "bold dark_sea_green4")
 
+    @clear_console
     def wrong_message(self, message):
-        self.display_message(message, "bold bright_red")
+        self.display_message(message, "bold dark_orange3")
 
+    @clear_console
     def warning_message(self, message):
         self.display_message(message, "bold bright_yellow")
     
+    #########################################################
+    #                   Getters
+    #########################################################
+    @clear_console
     def get_username(self) -> str:
         return self.input("Username: ")
     
+    @clear_console
     def get_full_name(self) -> str:
         return self.input("Full name: ")
     
+    @clear_console
     def get_email(self) -> str:
         return self.input("Email: ")
     
+    @clear_console
     def get_password(self) -> str:
         return self._prompt_password()
     
+    @clear_console
     def get_role_id(self) -> str:
         return self.input("Role ID: ")
     
+    @clear_console
     def get_phone(self) -> str:
         return self.input("Phone number: ")
     
+    @clear_console
     def get_company_id(self) -> str:
         return self.input("Company ID: ")
     
+    @clear_console
     def get_contract_id(self) -> str:
         return self.input("Contract ID: ")
     
+    @clear_console
     def get_first_contact_date(self) -> str:
         return self.input("First contact date (format: dd/mm/yyyy): ")
     
+    @clear_console
     def get_last_contact_date(self) -> str:
         return self.input("Last contact date (format: dd/mm/yyyy): ")
 
+    @clear_console
     def get_title(self) -> str:
         return self.input("Title: ")
 
+    @clear_console
     def get_full_address(self) -> str:
         return self.input("Full address: ")
 
+    @clear_console
     def get_support_contact_id(self) -> str:
         return self.input("Support contact ID: ")
 
+    @clear_console
     def get_start_date(self) -> str:
         return self.input("Start date (format: dd/mm/yyyy): ")
     
+    @clear_console
     def get_end_date(self) -> str:
         return self.input("End date (format: dd/mm/yyyy): ")
     
+    @clear_console
     def get_participant_count(self) -> str:
         return self.input("Participant count: ")    
     
+    @clear_console
     def get_client_id(self) -> str:
         return self.input("Client ID: ")
 
+    @clear_console
     def get_contract_id(self) -> str:
         return self.input("Contract ID: ")
     
+    @clear_console
     def get_notes(self) -> str:
         return self.input("Notes: ")            
 
+    @clear_console
     def get_commercial_id(self) -> str:
         return self.input("Commercial ID: ")
     
+    @clear_console
     def get_total_amount(self) -> str:
         return self.input("Total amount: ")
     
+    @clear_console
     def get_remaining_amount(self) -> str:
         return self.input("Remaining amount: ")
     
+    @clear_console
     def get_is_signed(self) -> str:
         return self.input("Is signed (yes/no): ")
     
+    @clear_console
     def get_is_fully_paid(self) -> str:
         return self.input("Is fully paid (yes/no): ")
     
+    @clear_console
     def get_company_name(self) -> str:
         return self.input("Company name: ")
 
+    #########################################################
+    #                   Displayers
+    #########################################################
     @clear_console
     def display_events(self, events):
         """Display a list of events."""
@@ -231,7 +265,17 @@ class MainView:
         table.add_column(header=Text("Start Date", style=epic_style), justify="center")
         table.add_column(header=Text("Support ID", style=epic_style), justify="center")
         for event in events:
-            table.add_row(Text(str(event.id), style="bold gold1"), Text(event.title, style="bold grey100"), Text(event.start_date.strftime("%d/%m/%Y"), style="grey100"), Text(str(event.support_contact_id or "Not assigned"), style="grey100"))
+            table.add_row(
+                Text(
+                    str(event.id), 
+                    style="bold gold1"), 
+                    Text(event.title, style="bold grey100"), 
+                    Text(event.start_date.strftime("%d/%m/%Y"), 
+                    style="grey100"), 
+                    Text(str(event.support_contact_id or "Not assigned"), 
+                    style="grey100"
+                )
+            )
         print(table, justify="center")
 
     @clear_console
@@ -244,11 +288,32 @@ class MainView:
         table.add_row(Text("ID", style=logo_style), Text(str(event.id), style="grey100"))
         table.add_row(Text("Title", style=logo_style), Text(event.title, style="grey100"))
         table.add_row(Text("Contract ID", style=logo_style), Text(str(event.contract_id), style="grey100"))
-        table.add_row(Text("Support ID", style=logo_style), Text(str(event.support_contact_id or "Not assigned"), style="grey100"))
-        table.add_row(Text("Start Date", style=logo_style), Text(event.start_date.strftime("%d/%m/%Y"), style="grey100"))
-        table.add_row(Text("End Date", style=logo_style), Text(event.end_date.strftime("%d/%m/%Y"), style="grey100"))
-        table.add_row(Text("Participants", style=logo_style), Text(str(event.participant_count), style="grey100"))
-        table.add_row(Text("Address", style=logo_style), Text(event.full_address or "Not specified", style="grey100"))
+        table.add_row(
+            Text("Support ID", style=logo_style), 
+            Text(str(event.support_contact_id or "Not assigned"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Start Date", style=logo_style), 
+            Text(event.start_date.strftime("%d/%m/%Y"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("End Date", style=logo_style), 
+            Text(event.end_date.strftime("%d/%m/%Y"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Participants", 
+            style=logo_style), 
+            Text(str(event.participant_count), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Address", style=logo_style), 
+            Text(event.full_address or "Not specified", 
+            style="grey100")
+        )
         table.add_row(Text("Notes", style=logo_style), Text(event.notes or "No notes", style="grey100"))
         
         print(table, justify="center")
@@ -265,26 +330,84 @@ class MainView:
         table.add_column(header=Text("Signed", style=epic_style), justify="center")
         table.add_column(header=Text("Paid", style=epic_style), justify="center")
         for contract in contracts:
-            table.add_row(Text(str(contract.id), style="grey100"), Text(str(contract.client_id), style="grey100"), Text(str(contract.commercial_id), style="grey100"), Text(f"{contract.total_amount}€", style="grey100"), Text("Yes" if contract.is_signed else "No", style="grey100"), Text("Yes" if contract.is_fully_paid else "No", style="grey100"))
+            table.add_row(
+                Text(str(contract.id), style="grey100"), 
+                Text(str(contract.client_id), 
+                style="grey100"), 
+                Text(str(contract.commercial_id), 
+                style="grey100"), 
+                Text(f"{contract.total_amount}€", 
+                style="grey100"), 
+                Text("Yes" if contract.is_signed else "No", 
+                style="grey100"), 
+                Text("Yes" if contract.is_fully_paid else "No", 
+                style="grey100")
+            )
         print(table, justify="center")
 
     @clear_console
     def display_contract(self, contract):
         """Display contract details."""
-        table = Table(title=Text(f"CONTRACT #{contract.id}", style=logo_style), box=box.ROUNDED, show_header=False)
+        table = Table(
+            title=Text(f"CONTRACT #{contract.id}", 
+            style=logo_style), 
+            box=box.ROUNDED, 
+            show_header=False
+        )
         table.add_column()
         table.add_column()
         
-        table.add_row(Text("ID", style=logo_style), Text(str(contract.id), style="grey100"))
-        table.add_row(Text("Client ID", style=logo_style), Text(str(contract.client_id), style="grey100"))
-        table.add_row(Text("Commercial ID", style=logo_style), Text(str(contract.commercial_id), style="grey100"))
-        table.add_row(Text("Total Amount", style=logo_style), Text(f"{contract.total_amount}€", style="grey100"))
-        table.add_row(Text("Remaining Amount", style=logo_style), Text(f"{contract.remaining_amount}€", style="grey100"))
-        table.add_row(Text("Signed", style=logo_style), Text("Yes" if contract.is_signed else "No", style="grey100"))
-        table.add_row(Text("Fully Paid", style=logo_style), Text("Yes" if contract.is_fully_paid else "No", style="grey100"))
-        table.add_row(Text("Created At", style=logo_style), Text(contract.created_at.strftime("%d/%m/%Y"), style="grey100"))
-        table.add_row(Text("Updated At", style=logo_style), Text(contract.updated_at.strftime("%d/%m/%Y"), style="grey100"))
-        
+        table.add_row(
+            Text("ID", style=logo_style), 
+            Text(str(contract.id), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Client ID", style=logo_style), 
+            Text(str(contract.client_id), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Commercial ID", style=logo_style), 
+            Text(str(contract.commercial_id), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Total Amount", style=logo_style), 
+            Text(f"{contract.total_amount}€", 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Remaining Amount", 
+            style=logo_style), 
+            Text(f"{contract.remaining_amount}€", 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Signed", style=logo_style), 
+            Text("Yes" if contract.is_signed else "No", 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Fully Paid", style=logo_style), 
+            Text("Yes" if contract.is_fully_paid else "No", 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Created At", style=logo_style), 
+            Text(contract.created_at.strftime("%d/%m/%Y"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Updated At", style=logo_style), 
+            Text(contract.updated_at.strftime("%d/%m/%Y"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Events", style=logo_style), 
+            Text(str(len(contract.events)), 
+            style="grey100")
+        )
         print(table, justify="center")
 
     @clear_console
@@ -296,13 +419,25 @@ class MainView:
         table.add_column(header=Text("Username", style=epic_style), justify="center")
         table.add_column(header=Text("Role", style=epic_style), justify="center")
         for user in users:
-            table.add_row(Text(str(user.id), style="grey100"), Text(user.username, style="grey100"), Text(str(user.role_id), style="grey100"))
+            table.add_row(
+                Text(str(user.id), 
+                style="grey100"), 
+                Text(user.username, 
+                style="grey100"), 
+                Text(str(user.role_id), 
+                style="grey100")
+            )
         print(table, justify="center")
 
     @clear_console
     def display_user(self, user):
         """Display user details."""
-        table = Table(title=Text(user.username.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
+        table = Table(
+            title=Text(user.username.upper(), 
+            style=logo_style), 
+            box=box.ROUNDED, 
+            show_header=False
+        )
         table.add_column()
         table.add_column()
         
@@ -316,12 +451,33 @@ class MainView:
         role_name = role_names.get(user.role_id, f'Role {user.role_id}')
         table.add_row(Text("Role", style=logo_style), Text(f"{role_name} ({user.role_id})", style="grey100"))
         
-        table.add_row(Text("Active", style=logo_style), Text("Yes" if user.is_active else "No", style="grey100"))
-        table.add_row(Text("Created At", style=logo_style), Text(user.created_at.strftime("%d/%m/%Y %H:%M"), style="grey100"))
-        table.add_row(Text("Updated At", style=logo_style), Text(user.updated_at.strftime("%d/%m/%Y %H:%M"), style="grey100"))
+        table.add_row(
+            Text("Active", style=logo_style), 
+            Text("Yes" if user.is_active else "No", 
+            style="grey100"))
+        table.add_row(
+            Text("Created At", style=logo_style), 
+            Text(user.created_at.strftime("%d/%m/%Y %H:%M"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Updated At", style=logo_style), 
+            Text(user.updated_at.strftime("%d/%m/%Y %H:%M"), 
+            style="grey100")
+        )
+        table.add_row(
+            Text("Events", style=logo_style), 
+            Text(str(len(user.events)), 
+            style="grey100")
+        )
         
         if user.last_login:
-            table.add_row(Text("Last Login", style=logo_style), Text(user.last_login.strftime("%d/%m/%Y %H:%M"), style="grey100"))
+            table.add_row(
+                Text("Last Login", 
+                style=logo_style), 
+                Text(user.last_login.strftime("%d/%m/%Y %H:%M"), 
+                style="grey100")
+            )
         else:
             table.add_row(Text("Last Login", style=logo_style), Text("Never", style="grey100"))
             
@@ -347,7 +503,7 @@ class MainView:
         )
         
         # Show token expiration info only
-        exp_text = refresh_exp.strftime("%d/%m/%Y") if hasattr(refresh_exp, "strftime") else str(refresh_exp).split(" ")[0]
+        exp_text = refresh_exp.strftime("%d/%m/%Y") if hasattr(refresh_exp, "strftime") else qlstr(refresh_exp).split(" ")[0]
         print(
             Panel.fit(
                 f"Tokens stored securely until {exp_text}", 
@@ -398,22 +554,63 @@ class MainView:
         table.add_column(header=Text("Full Name", style=epic_style), justify="center")
         table.add_column(header=Text("Commercial ID", style=epic_style), justify="center")
         for client in clients:
-            table.add_row(Text(str(client.id), style="bold gold1"), Text(client.full_name, style="grey100"), Text(str(client.commercial_id), style="grey100"))
+            table.add_row(
+                Text(str(client.id), 
+                style="bold gold1"), 
+                Text(client.full_name, style="grey100"), 
+                Text(str(client.commercial_id), 
+                style="grey100")
+            )
         print(table, justify="center")
         
     @clear_console
     def display_client_detail(self, access_token, client):
-        self.display_details(access_token, client.id, Client, fields=["id", "full_name", "email", "phone", "company_id", "commercial_id", "first_contact_date", "last_contact_date"])
+        self.display_details(
+            access_token, 
+            client.id, 
+            Client, 
+            fields=[
+                "id", "full_name", "email", 
+                "phone", "company_id", 
+                "commercial_id", 
+                "first_contact_date", 
+                "last_contact_date"
+            ]
+        )
     
     @clear_console
     def display_list_events(self, events):
         for event in events:
-            table = Table(title=Text(events.title.upper(), style=epic_style), box=box.ROUNDED, show_header=False)
+            table = Table(
+                title=Text(events.title.upper(), 
+                style=epic_style), 
+                box=box.MINIMAL, 
+                show_header=False
+            )
             table.add_column()
             table.add_column()
-            table.add_row(Text("ID", style=epic_style), Text(str(event.id), style="grey100"))
-            table.add_row(Text("Start Date", style=epic_style), Text(event.start_date.strftime("%d/%m/%Y"), style="grey100"))
-            table.add_row(Text("Participant Count", style=epic_style), Text(str(event.participant_count), style="grey100"))
+            table.add_row(
+                Text("ID", style=epic_style), 
+                Text(str(event.id), 
+                style="grey100")
+            )
+            table.add_row(
+                Text("Start Date", style=epic_style), 
+                Text(event.start_date.strftime("%d/%m/%Y"), 
+                style="grey100")
+            )
+            table.add_row(
+                Text("Participant Count", 
+                style=epic_style), 
+                Text(str(event.participant_count), 
+                style="grey100")
+            )
+            table.add_row(
+                Text("Participant Count", 
+                style=epic_style), 
+                Text(str(event.participant_count), 
+                style="grey100")
+            )
         print(table, justify="center")
 
     @clear_console
@@ -423,24 +620,43 @@ class MainView:
     @clear_console
     def display_details(self, access_token, obj_id, obj_class, fields=None):
         with Session() as session:
-            obj = session.scalars(select(obj_class).filter(obj_class.id == obj_id)).one_or_none()
+            obj = session.scalars(
+                select(obj_class).filter(obj_class.id == obj_id)
+            ).one_or_none()
             if not obj:
-                self.wrong_message("OPERATION DENIED: Object not found.")
+                self.wrong_message(
+                    "OPERATION DENIED: Object not found."
+                )
                 return
+
             name = getattr(obj, "name", None)
             if not name:
                 name = getattr(obj, "full_name", None)
             if not name:
                 name = getattr(obj, "title", None)
-            print()
-            table = Table(title=Text(name.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
+            table = Table(
+                title=Text(name.upper(), 
+                style=logo_style), 
+                box=box.ROUNDED, 
+                show_header=False
+            )
             table.add_column()
             table.add_column()
             if not fields:
                 for key, value in obj.__dict__.items():
-                    table.add_row(Text(key.capitalize(), style=logo_style), Text(str(value), style="grey100"))
+                    table.add_row(
+                        Text(key.capitalize(), 
+                        style=logo_style), 
+                        Text(str(value), 
+                        style="grey100")
+                    )
                 print(table, justify="center")
             else:
                 for field in fields:
-                    table.add_row(Text(field.capitalize(), style=logo_style), Text(str(getattr(obj, field)), style="grey100"))
+                    table.add_row(
+                        Text(field.capitalize(), 
+                        style=logo_style), 
+                        Text(str(getattr(obj, field)), 
+                        style="grey100")
+                    )
                 print(table, justify="center")

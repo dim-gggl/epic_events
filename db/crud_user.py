@@ -33,7 +33,7 @@ def list_users(access_token: str):
         users = session.scalars(select(User)).all()
         view.display_users(users)
 
-@login_required
+@require_permission("user:view")
 def view_user(access_token: str, user_id: int):
     """View a specific user."""
     with Session() as session:
