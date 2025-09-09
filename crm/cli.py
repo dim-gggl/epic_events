@@ -320,6 +320,7 @@ def status() -> None:
 @command.group(invoke_without_command=True)
 @click.pass_context
 def client(ctx: click.Context) -> None:
+    """Client management commands"""
     if ctx.invoked_subcommand is None:
         render_help_with_logo(ctx)
 
@@ -330,6 +331,7 @@ attach_help(client)
 @client.command("create")
 @click.option("-t", "--token", help="Access token with commercial role", required=False)
 def client_create(token: str | None) -> None:
+    """Client management commands."""
     token = resolve_token(token)
     create_client(token)
 
@@ -338,6 +340,7 @@ def client_create(token: str | None) -> None:
 @click.option("-t", "--token", help="Access token", required=False)
 @click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
 def client_list(token: str | None, only_mine: bool) -> None:
+    """Clients appearing as a list when on fumait tours les genard"""
     token = resolve_token(token)
     list_clients(token, filtered=only_mine)
 
