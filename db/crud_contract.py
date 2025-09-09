@@ -6,7 +6,12 @@ from crm.permissions import login_required, require_permission, has_permission
 from db.config import Session
 from auth.login import login
 from sqlalchemy import select
-
+from constants import *
+from utils import (
+    get_user_id_from_token, check_object_exists, 
+    create_error_message, create_success_message,
+    create_permission_error_message, create_not_found_error_message
+)
 
 view = MainView()
 controller = MainController()
@@ -45,14 +50,15 @@ def create_contract(access_token: str,
         session.add(contract)
         session.commit()
         view.success_message(
-            f"Contract ({contract.id}) has been created successfully."
+            create_success_operation_message("created", "contract", 
+                                           str(contract.id))
         )
 
 @login_required
 def list_contracts(access_token: str, filtered: bool = False):
     """List contracts based on user permissions."""
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
+        user_id = get_user_id_from_token(access_token)
         
         if has_permission(access_token, "contract:list:any"):
             # Management can see all contracts
@@ -67,11 +73,13 @@ def list_contracts(access_token: str, filtered: bool = False):
             # This needs a join with events
             from crm.models import Event
             contracts = session.scalars(
-                select(Contract).join(Event).filter(Event.support_contact_id == user_id)
+                select(Contract).join(Event).filter(
+                    Event.support_contact_id == user_id
+                )
             ).all()
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to list contracts."
+                create_permission_error_message("list", "contracts")
             )
             return
             
@@ -81,13 +89,11 @@ def list_contracts(access_token: str, filtered: bool = False):
 def view_contract(access_token: str, contract_id: int):
     """View a specific contract based on user permissions."""
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
-        contract = session.scalars(
-            select(Contract).filter(Contract.id == contract_id)
-        ).one_or_none()
+        user_id = get_user_id_from_token(access_token)
+        contract = check_object_exists(session, Contract, contract_id)
         
         if not contract:
-            view.wrong_message("OPERATION DENIED: Contract not found.")
+            view.wrong_message(create_not_found_error_message("Contract"))
             return
             
         # Check permissions
@@ -98,23 +104,26 @@ def view_contract(access_token: str, contract_id: int):
             # Commercial can view their own contracts
             if contract.commercial_id != user_id:
                 view.wrong_message(
-                    "OPERATION DENIED: You can only view your own contracts."
+                    f"{OPERATION_DENIED}: {ONLY_OWN_RECORDS}"
                 )
                 return
         elif has_permission(access_token, "contract:view:assigned"):
             # Support can view contracts for their assigned events
             from crm.models import Event
             assigned_event = session.scalars(
-                select(Event).filter(Event.contract_id == contract_id, Event.support_contact_id == user_id)
+                select(Event).filter(
+                    Event.contract_id == contract_id, 
+                    Event.support_contact_id == user_id
+                )
             ).first()
             if not assigned_event:
                 view.wrong_message(
-                    "OPERATION DENIED: You can only view contracts for your assigned events."
+                    f"{OPERATION_DENIED}: {ONLY_ASSIGNED_RECORDS}"
                 )
                 return
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to view contracts."
+                create_permission_error_message("view", "contracts")
             )
             return
             
@@ -124,13 +133,11 @@ def view_contract(access_token: str, contract_id: int):
 def update_contract(access_token: str, contract_id: int, **kwargs):
     """Update a contract based on user permissions."""
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
-        contract = session.scalars(
-            select(Contract).filter(Contract.id == contract_id)
-        ).one_or_none()
+        user_id = get_user_id_from_token(access_token)
+        contract = check_object_exists(session, Contract, contract_id)
         
         if not contract:
-            view.wrong_message("OPERATION DENIED: Contract not found.")
+            view.wrong_message(create_not_found_error_message("Contract"))
             return
             
         # Check permissions
@@ -141,12 +148,12 @@ def update_contract(access_token: str, contract_id: int, **kwargs):
             # Commercial can update their own contracts
             if contract.commercial_id != user_id:
                 view.wrong_message(
-                    "OPERATION DENIED: You can only update your own contracts."
+                    f"{OPERATION_DENIED}: {ONLY_OWN_RECORDS}"
                 )
                 return
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to update contracts."
+                create_permission_error_message("update", "contracts")
             )
             return
             
@@ -154,7 +161,7 @@ def update_contract(access_token: str, contract_id: int, **kwargs):
         if not any(kwargs.values()):
             contract_data = controller.get_contract_data(contract.commercial_id)
             for key, value in contract_data.items():
-                if key != 'commercial_id':  # Don't change the commercial
+                if key != "commercial_id":  # Don't change the commercial
                     setattr(contract, key, value)
         else:
             # Update with provided values
@@ -164,19 +171,18 @@ def update_contract(access_token: str, contract_id: int, **kwargs):
                     
         session.commit()
         view.success_message(
-            f"Contract ({contract.id}) has been updated successfully."
+            create_success_operation_message("updated", "contract", 
+                                           str(contract.id))
         )
 
 @require_permission("contract:delete")
 def delete_contract(access_token: str, contract_id: int):
     """Delete a contract. Only management can delete contracts."""
     with Session() as session:
-        contract = session.scalars(
-            select(Contract).filter(Contract.id == contract_id)
-        ).one_or_none()
+        contract = check_object_exists(session, Contract, contract_id)
         
         if not contract:
-            view.wrong_message("OPERATION DENIED: Contract not found.")
+            view.wrong_message(create_not_found_error_message("Contract"))
             return
             
         # Check if contract has associated events
@@ -185,9 +191,14 @@ def delete_contract(access_token: str, contract_id: int):
             select(Event).filter(Event.contract_id == contract_id)
         ).all()
         if associated_events:
-            view.wrong_message("OPERATION DENIED: Cannot delete contract with associated events.")
+            view.wrong_message(
+                f"{OPERATION_DENIED}: {CANNOT_DELETE_WITH_ASSOCIATIONS}"
+            )
             return
             
         session.delete(contract)
         session.commit()
-        view.success_message(f"Contract ({contract_id}) has been deleted successfully.")
+        view.success_message(
+            create_success_operation_message("deleted", "contract", 
+                                           str(contract_id))
+        )

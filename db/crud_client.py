@@ -6,6 +6,12 @@ from crm.permissions import login_required, require_permission, has_permission
 from db.config import Session
 from auth.login import login
 from sqlalchemy import select
+from constants import *
+from utils import (
+    get_user_id_from_token, check_object_exists, 
+    create_error_message, create_success_message,
+    create_permission_error_message, create_not_found_error_message
+)
 
 view = MainView()
 controller = MainController()
@@ -13,7 +19,7 @@ controller = MainController()
 @require_permission("client:create")
 def create_client(access_token: str):
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
+        user_id = get_user_id_from_token(access_token)
         client_data = controller.get_client_data()
         client = Client(
             full_name=client_data["full_name"],
@@ -27,13 +33,14 @@ def create_client(access_token: str):
         session.add(client)
         session.commit()
         view.success_message(
-            f"Your client ({client.full_name}) has been created successfully."
+            create_success_operation_message("created", "client", 
+                                           client.full_name)
         )
 
 @login_required
 def list_clients(access_token: str, filtered: bool = False) -> None:
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
+        user_id = get_user_id_from_token(access_token)
         if filtered:
             clients = session.scalars(
                 select(Client).filter(Client.commercial_id == user_id)
@@ -53,19 +60,17 @@ def update_client(access_token: str,
     can update their own clients.
     """
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
+        user_id = get_user_id_from_token(access_token)
         
         # Get client first
         if client_id:
-            client = session.scalars(
-                select(Client).filter(Client.id == client_id)
-            ).one_or_none()   
+            client = check_object_exists(session, Client, client_id)
         else:
             view.wrong_message("Client ID is required for update.")
             return
             
         if not client:
-            view.wrong_message("Client not found.")
+            view.wrong_message(create_not_found_error_message("Client"))
             return
             
         # Check permissions - commercial can only update their own clients
@@ -76,12 +81,12 @@ def update_client(access_token: str,
             # Commercial can only update their own clients
             if client.commercial_id != user_id:
                 view.wrong_message(
-                    "OPERATION DENIED: You can only update your own clients."
+                    f"{OPERATION_DENIED}: {ONLY_OWN_RECORDS}"
                 )
                 return
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to update clients."
+                create_permission_error_message("update", "clients")
             )
             return
             
@@ -98,21 +103,18 @@ def update_client(access_token: str,
         
         session.commit()
         view.success_message(
-            f"Client ({client.full_name}) has been updated successfully."
+            create_success_operation_message("updated", "client", 
+                                           client.full_name)
         )
         
 @login_required
 def view_client(access_token: str, client_id: int):
     with Session() as session:
-        user_id = int(
-            verify_access_token(access_token)["sub"]
-        )
-        client = session.scalars(
-            select(Client).filter(Client.id == client_id)
-        ).one_or_none()
+        user_id = get_user_id_from_token(access_token)
+        client = check_object_exists(session, Client, client_id)
         
         if not client:
-            view.wrong_message("OPERATION DENIED: Client not found.")
+            view.wrong_message(create_not_found_error_message("Client"))
             return
             
         # Check permissions
@@ -123,7 +125,7 @@ def view_client(access_token: str, client_id: int):
             # Commercial can only view their own clients
             if client.commercial_id != user_id:
                 view.wrong_message(
-                    "OPERATION DENIED: You can only view your own clients."
+                    f"{OPERATION_DENIED}: {ONLY_OWN_RECORDS}"
                 )
                 return
         elif has_permission(access_token, "client:view:assigned"):
@@ -133,7 +135,7 @@ def view_client(access_token: str, client_id: int):
             pass
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to view clients."
+                create_permission_error_message("view", "clients")
             )
             return
             
@@ -143,12 +145,10 @@ def view_client(access_token: str, client_id: int):
 def delete_client(access_token: str, client_id: int):
     """Delete a client. Only management can delete clients."""
     with Session() as session:
-        client = session.scalars(
-            select(Client).filter(Client.id == client_id)
-        ).one_or_none()
+        client = check_object_exists(session, Client, client_id)
         
         if not client:
-            view.wrong_message("OPERATION DENIED: Client not found.")
+            view.wrong_message(create_not_found_error_message("Client"))
             return
             
         # Check if client has associated contracts
@@ -157,12 +157,13 @@ def delete_client(access_token: str, client_id: int):
         ).all()
         if associated_contracts:
             view.wrong_message(
-                "OPERATION DENIED: Cannot delete client with associated contracts."
+                f"{OPERATION_DENIED}: {CANNOT_DELETE_WITH_ASSOCIATIONS}"
             )
             return
             
         session.delete(client)
         session.commit()
         view.success_message(
-            f"Client '{client.full_name}' (ID: {client_id}) has been deleted successfully."
+            create_success_operation_message("deleted", "client", 
+                                           client.full_name)
         )

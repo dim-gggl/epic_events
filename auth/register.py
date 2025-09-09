@@ -8,6 +8,7 @@ from crm.controllers import MainController as controller
 from crm.views.views import MainView as view
 from auth.jwt.verify_token import verify_access_token
 from auth.hashing import hash_password
+from constants import *
 
 controller = controller()
 view = view()
@@ -32,12 +33,12 @@ def create_user(access_token: str,
     """
     access_token_payload = verify_access_token(access_token)
     if not access_token_payload:
-        view.wrong_message("OPERATION DENIED: Invalid access token.")
+        view.wrong_message(f"{OPERATION_DENIED}: {INVALID_TOKEN}")
         return
 
     role = access_token_payload.get("role_id")
     if int(role) != 1:
-        view.wrong_message("OPERATION DENIED: You are not authorized to create a user.")
+        view.wrong_message(f"{OPERATION_DENIED}: {ONLY_MANAGEMENT}")
         return
         
     if not username:
@@ -66,4 +67,4 @@ def create_user(access_token: str,
         session.add(user)
         session.commit()
     
-    view.success_message(f"User '{username}' registered successfully.")
+    view.success_message(f"User '{username}' {USER_CREATED}.")

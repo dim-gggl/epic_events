@@ -6,6 +6,12 @@ from crm.permissions import require_permission, login_required, has_permission
 from db.config import Session
 from auth.register import create_user as register_user
 from sqlalchemy import select
+from constants import *
+from utils import (
+    get_user_id_from_token, check_object_exists, 
+    create_error_message, create_success_message,
+    create_permission_error_message, create_not_found_error_message
+)
 
 view = MainView()
 controller = MainController()
@@ -37,18 +43,19 @@ def list_users(access_token: str):
 def view_user(access_token: str, user_id: int):
     """View a specific user."""
     with Session() as session:
-        current_user_id = int(verify_access_token(access_token)["sub"])
-        user = session.scalars(
-            select(User).filter(User.id == user_id)
-        ).one_or_none()
+        current_user_id = get_user_id_from_token(access_token)
+        user = check_object_exists(session, User, user_id)
         
         if not user:
-            view.wrong_message("OPERATION DENIED: User not found.")
+            view.wrong_message(create_not_found_error_message("User"))
             return
             
         # Check permissions - management can view any user, others can only view themselves
-        if not (has_permission(access_token, "user:view:any") or current_user_id == user_id):
-            view.wrong_message("OPERATION DENIED: You can only view your own profile.")
+        if not (has_permission(access_token, "user:view:any") or 
+                current_user_id == user_id):
+            view.wrong_message(
+                f"{OPERATION_DENIED}: {ONLY_OWN_RECORDS}"
+            )
             return
             
         view.display_user(user)
@@ -57,21 +64,19 @@ def view_user(access_token: str, user_id: int):
 def update_user(access_token: str, user_id: int, **kwargs):
     """Update a user. Only management can update users."""
     with Session() as session:
-        user = session.scalars(
-            select(User).filter(User.id == user_id)
-        ).one_or_none()
+        user = check_object_exists(session, User, user_id)
         
         if not user:
-            view.wrong_message("OPERATION DENIED: User not found.")
+            view.wrong_message(create_not_found_error_message("User"))
             return
             
         # Get updated data if not provided via kwargs
         if not any(kwargs.values()):
             # Prompt for each field
-            username = kwargs.get('username', view.get_username())
-            full_name = kwargs.get('full_name', view.get_full_name())
-            email = kwargs.get('email', view.get_email())
-            role_id = kwargs.get('role_id', int(view.get_role_id()))
+            username = kwargs.get("username", view.get_username())
+            full_name = kwargs.get("full_name", view.get_full_name())
+            email = kwargs.get("email", view.get_email())
+            role_id = kwargs.get("role_id", int(view.get_role_id()))
             
             # Update fields
             user.username = username if username else user.username
@@ -85,30 +90,39 @@ def update_user(access_token: str, user_id: int, **kwargs):
                     setattr(user, key, value)
                     
         session.commit()
-        view.success_message(f"User '{user.username}' has been updated successfully.")
+        view.success_message(
+            create_success_operation_message("updated", "user", user.username)
+        )
 
 @require_permission("user:delete")
 def delete_user(access_token: str, user_id: int):
     """Delete a user. Only management can delete users."""
     with Session() as session:
-        current_user_id = int(verify_access_token(access_token)["sub"])
+        current_user_id = get_user_id_from_token(access_token)
         
         # Prevent self-deletion
         if current_user_id == user_id:
-            view.wrong_message("OPERATION DENIED: You cannot delete your own account.")
+            view.wrong_message(
+                f"{OPERATION_DENIED}: {CANNOT_DELETE_SELF}"
+            )
             return
             
-        user = session.scalars(select(User).filter(User.id == user_id)).one_or_none()
+        user = check_object_exists(session, User, user_id)
         
         if not user:
-            view.wrong_message("OPERATION DENIED: User not found.")
+            view.wrong_message(create_not_found_error_message("User"))
             return
             
         # Check if user has associated records that would prevent deletion
-        if user.managed_clients or user.managed_contracts or user.supported_events:
-            view.wrong_message("OPERATION DENIED: Cannot delete user with associated records.")
+        if (user.managed_clients or user.managed_contracts or 
+            user.supported_events):
+            view.wrong_message(
+                f"{OPERATION_DENIED}: {CANNOT_DELETE_WITH_ASSOCIATIONS}"
+            )
             return
             
         session.delete(user)
         session.commit()
-        view.success_message(f"User '{user.username}' (ID: {user_id}) has been deleted successfully.")
+        view.success_message(
+            create_success_operation_message("deleted", "user", user.username)
+        )

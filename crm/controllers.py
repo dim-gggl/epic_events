@@ -15,10 +15,9 @@ from exceptions import InvalidTokenError, OperationDeniedError
 from crm.views.views import MainView as view
 from db.config import Session
 from crm.models import Client
+from constants import *
 
 view = view()
-
-DATE_FMT = "%d/%m/%Y"
 
 def _ask(
     prompt: Callable[[], str],
@@ -64,7 +63,7 @@ def _to_float(s: str) -> float:
 
 
 def _to_date(s: str) -> datetime:
-    return datetime.strptime(s, DATE_FMT)
+    return datetime.strptime(s, DATE_FORMAT)
 
 
 def _to_bool_yes_no(s: str) -> bool:
@@ -114,8 +113,11 @@ class MainController:
     def get_username(self) -> str:
         username = view.get_username().strip()
         if not is_valid_username(username):
-            view.wrong_message("Username should be between 5 and 64 characters long.\n"
-                              "and should not already be in use.")
+            view.wrong_message(
+                f"Username should be between {USERNAME_MIN_LENGTH} and "
+                f"{USERNAME_MAX_LENGTH} characters long.\n"
+                "and should not already be in use."
+            )
             return self.get_username()
         return username
     
@@ -125,23 +127,25 @@ class MainController:
     def get_email(self) -> str:
         email = view.get_email().strip()
         if not is_valid_email(email):
-            view.wrong_message("Invalid email address.")
+            view.wrong_message(INVALID_EMAIL)
             return self.get_email()
         return email
         
     def get_password(self) -> str:
         password = view._prompt_password().strip()
         if not is_valid_password(password):
-            view.wrong_message("Password should be at least 8 characters long\n"
-                              "must contain at least one uppercase letter, one\n"
-                              "lowercase letter and one digit.")
+            view.wrong_message(
+                f"Password should be at least {PASSWORD_MIN_LENGTH} characters long\n"
+                "must contain at least one uppercase letter, one\n"
+                "lowercase letter and one digit."
+            )
             return self.get_password()
         return password
 
     def get_role_id(self) -> int:
         role_id = int(view.get_role_id().strip())
         if not is_valid_role_id(role_id):
-            view.wrong_message("Invalid role id.")
+            view.wrong_message(INVALID_ROLE_ID)
             return self.get_role_id()
         return role_id
 
@@ -154,7 +158,7 @@ class MainController:
         
         access_token = get_access_token()
         if not access_token:
-            raise InvalidTokenError("No authentication token available. Please login first.")
+            raise InvalidTokenError(NO_AUTH_TOKEN)
             
         payload = verify_access_token(access_token)
         return payload
@@ -164,7 +168,7 @@ class MainController:
             view.get_client_id,
             cast=_to_int,
             required_msg="Client ID cannot be empty.",
-            invalid_msg="Client ID must be an integer.",
+            invalid_msg=INVALID_CLIENT_ID,
         )
         return client_id
     
@@ -174,7 +178,7 @@ class MainController:
             view.get_commercial_id,
             cast=_to_int,
             required_msg="All collaborators have an ID.",
-            invalid_msg="Commercial ID must be a positive integer.",
+            invalid_msg=INVALID_COMMERCIAL_ID,
         )
         return commercial_id
 
@@ -183,7 +187,7 @@ class MainController:
             view.get_participant_count,
             cast=_to_int,
             required_msg="The number of persons attending the event.",
-            invalid_msg="Participant count must be a positive integer.",
+            invalid_msg=INVALID_PARTICIPANT_COUNT,
         )
         return participant_count
 
@@ -196,14 +200,14 @@ class MainController:
         email = _ask(
             view.get_email,
             required_msg="Email is required.",
-            invalid_msg="Invalid email address.",
+            invalid_msg=INVALID_EMAIL,
             validate=is_valid_email,
         )
 
         phone = _ask(
             view.get_phone,
             required_msg="Phone number is required.",
-            invalid_msg="Invalid phone number. Please try again.",
+            invalid_msg=INVALID_PHONE,
             validate=is_valid_phone,
         )
 
@@ -218,14 +222,14 @@ class MainController:
             view.get_first_contact_date,
             cast=_to_date,
             required_msg="The date of the first contact with the client.",
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+            invalid_msg=f"Invalid date. Expected format: {DATE_FORMAT}.",
         )
 
         last_contact_date = _ask(
             view.get_last_contact_date,
             cast=_to_date,
             required_msg="The date of the last contact with the client.",
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+            invalid_msg=f"Invalid date. Expected format: {DATE_FORMAT}.",
         )
 
         return {
@@ -265,28 +269,28 @@ class MainController:
             view.get_total_amount,
             cast=_to_float,
             required_msg="A contract must have a total amount.",
-            invalid_msg="Total amount must be a positive number.",
+            invalid_msg=INVALID_TOTAL_AMOUNT,
         )
 
         remaining_amount = _ask(
             view.get_remaining_amount,
             cast=_to_float,
             required_msg="Can be set to 0",
-            invalid_msg="Remaining amount must be a positive number or 0.",
+            invalid_msg=INVALID_REMAINING_AMOUNT,
         )
 
         is_signed = _ask(
             view.get_is_signed,
             cast=_to_bool_yes_no,
             required_msg="We must know the status of a contract.",
-            invalid_msg="Bad input, expected 'yes' or 'no'.",
+            invalid_msg=INVALID_YES_NO,
         )
 
         is_fully_paid = _ask(
             view.get_is_fully_paid,
             cast=_to_bool_yes_no,
             required_msg="We must know the payment status of a contract.",
-            invalid_msg="Bad input, expected 'yes' or 'no'.",
+            invalid_msg=INVALID_YES_NO,
         )
 
         return {
@@ -328,25 +332,25 @@ class MainController:
         start_date = _ask(
             view.get_start_date,
             cast=_to_date,
-            required_msg=f"Start date is required (format: {DATE_FMT}).",
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+            required_msg=f"Start date is required (format: {DATE_FORMAT}).",
+            invalid_msg=f"Invalid date. Expected format: {DATE_FORMAT}.",
         )
 
         end_date = _ask(
             view.get_end_date,
             cast=_to_date,
-            required_msg=f"End date is required (format: {DATE_FMT}).",
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+            required_msg=f"End date is required (format: {DATE_FORMAT}).",
+            invalid_msg=f"Invalid date. Expected format: {DATE_FORMAT}.",
         )
 
         while end_date < start_date:
-            view.wrong_message("End date must be on or after start date.")
+            view.wrong_message(INVALID_END_DATE)
             view.wrong_message("Please enter a new end date or start date.")
             
             choice = _ask(
                 lambda: view.get_input("Do you want to change the (e)nd date or (s)tart date? "),
-                required_msg="Please choose 'e' for end date or 's' for start date.",
-                invalid_msg="Invalid choice. Enter 'e' for end date or 's' for start date.",
+                required_msg=INVALID_END_DATE_CHOICE,
+                invalid_msg=INVALID_CHOICE,
                 validate=lambda x: x.lower() in ['e', 's', 'end', 'start']
             )
             
@@ -354,15 +358,15 @@ class MainController:
                 end_date = _ask(
                     view.get_end_date,
                     cast=_to_date,
-                    required_msg=f"End date is required (format: {DATE_FMT}).",
-                    invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+                    required_msg=f"End date is required (format: {DATE_FORMAT}).",
+                    invalid_msg=f"Invalid date. Expected format: {DATE_FORMAT}.",
                 )
             else:  # start date
                 start_date = _ask(
                     view.get_start_date,
                     cast=_to_date,
-                    required_msg=f"Start date is required (format: {DATE_FMT}).",
-                    invalid_msg=f"Invalid date. Expected format: {DATE_FMT}.",
+                    required_msg=f"Start date is required (format: {DATE_FORMAT}).",
+                    invalid_msg=f"Invalid date. Expected format: {DATE_FORMAT}.",
                 )
 
         participant_count = _ask(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict, List
 from crm.views.views import MainView
 from auth.jwt.verify_token import verify_access_token
+from constants import *
 
 
 ORDERED_DEFAULT_ROLES: List[str] = [
@@ -13,50 +14,56 @@ ORDERED_DEFAULT_ROLES: List[str] = [
 
 view = MainView()
 
+
+def _check_token_validity(access_token: str) -> bool:
+    """Check if access token is valid and not empty."""
+    return bool(access_token and access_token.strip())
+
+
+def _get_role_id(access_token: str) -> int:
+    """Get role ID from access token."""
+    payload = verify_access_token(access_token)
+    return int(payload["role_id"])
+
+
 def login_required(func):
+    """Decorator to require valid authentication token."""
     def wrapper(access_token: str, *args, **kwargs):
-        if not access_token or not access_token.strip():
-            view.wrong_message("OPERATION DENIED: You are not authorized to access this resource.")
+        if not _check_token_validity(access_token):
+            view.wrong_message(f"{OPERATION_DENIED}: {NOT_AUTH_TOKEN}")
             return
-        else:
-            return func(access_token, *args, **kwargs)
+        return func(access_token, *args, **kwargs)
     return wrapper
+
+
+def role_required(required_role_id: int, role_name: str):
+    """Decorator factory for role-specific permissions."""
+    def decorator(func):
+        def wrapper(access_token: str, *args, **kwargs):
+            if not _check_token_validity(access_token):
+                view.wrong_message(f"{OPERATION_DENIED}: {NOT_AUTH_TOKEN}")
+                return
+            if _get_role_id(access_token) != required_role_id:
+                view.wrong_message(f"{OPERATION_DENIED}: {ONLY_MANAGEMENT}")
+                return
+            return func(access_token, *args, **kwargs)
+        return wrapper
+    return decorator
+
 
 def commercial_exclusive(func):
-    def wrapper(access_token: str, *args, **kwargs):
-        if not access_token or not access_token.strip():
-            view.wrong_message("OPERATION DENIED: You are not authorized to access this resource.")
-            return
-        if not int(verify_access_token(access_token)["role_id"]) == 2:
-            view.wrong_message("OPERATION DENIED: This action is only available to commercial users.")
-            return
-        else:
-            return func(access_token, *args, **kwargs)
-    return wrapper
+    """Decorator for commercial-only operations."""
+    return role_required(2, "commercial")(func)
+
 
 def management_exclusive(func):
-    def wrapper(access_token: str, *args, **kwargs):
-        if not access_token or not access_token.strip():
-            view.wrong_message("OPERATION DENIED: You are not authorized to access this resource.")
-            return
-        if not verify_access_token(access_token)["role_id"] == 1:
-            view.wrong_message("OPERATION DENIED: This action is only available to management users.")
-            return
-        else:
-            return func(access_token, *args, **kwargs)
-    return wrapper
+    """Decorator for management-only operations."""
+    return role_required(1, "management")(func)
+
 
 def support_exclusive(func):
-    def wrapper(access_token: str, *args, **kwargs):
-        if not access_token or not access_token.strip():
-            view.wrong_message("OPERATION DENIED: You are not authorized to access this resource.")
-            return
-        if not verify_access_token(access_token)["role_id"] == 3:
-            view.wrong_message("OPERATION DENIED: This action is only available to support users.")
-            return
-        else:
-            return func(access_token, *args, **kwargs)
-    return wrapper
+    """Decorator for support-only operations."""
+    return role_required(3, "support")(func)
             
 DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
     "support": [

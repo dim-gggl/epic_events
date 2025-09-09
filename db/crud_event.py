@@ -5,6 +5,12 @@ from crm.views.views import MainView
 from crm.permissions import require_permission, has_permission, login_required
 from db.config import Session
 from sqlalchemy import select
+from constants import *
+from utils import (
+    get_user_id_from_token, check_object_exists, 
+    create_error_message, create_success_message,
+    create_permission_error_message, create_not_found_error_message
+)
 
 view = MainView()
 controller = MainController()
@@ -12,12 +18,14 @@ controller = MainController()
 @login_required
 def create_event(access_token: str):
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
+        user_id = get_user_id_from_token(access_token)
         
         # Check permissions - both commercial and management can create events
         if not (has_permission(access_token, "event:create:own_client") or 
                 has_permission(access_token, "event:create:any")):
-            view.wrong_message("OPERATION DENIED: You don't have permission to create events.")
+            view.wrong_message(
+                create_permission_error_message("create", "events")
+            )
             return
             
         event_data = controller.get_event_data()
@@ -33,16 +41,18 @@ def create_event(access_token: str):
         )
         session.add(event)
         session.commit()
-        view.success_message(f"Event ({event.title}) has been created successfully.")
+        view.success_message(
+            create_success_operation_message("created", "event", event.title)
+        )
 
 @login_required
 def update_event(access_token: str, event_id: int):
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
-        event = session.scalars(select(Event).filter(Event.id == event_id)).one_or_none()
+        user_id = get_user_id_from_token(access_token)
+        event = check_object_exists(session, Event, event_id)
         
         if not event:
-            view.wrong_message("OPERATION DENIED: Event not found.")
+            view.wrong_message(create_not_found_error_message("Event"))
             return
             
         # Check permissions
@@ -52,28 +62,36 @@ def update_event(access_token: str, event_id: int):
         elif has_permission(access_token, "event:update:assigned"):
             # Support can update events assigned to them
             if event.support_contact_id != user_id:
-                view.wrong_message("OPERATION DENIED: You can only update events assigned to you.")
+                view.wrong_message(
+                    f"{OPERATION_DENIED}: {ONLY_ASSIGNED_RECORDS}"
+                )
                 return
         else:
-            view.wrong_message("OPERATION DENIED: You don't have permission to update events.")
+            view.wrong_message(
+                create_permission_error_message("update", "events")
+            )
             return
             
         event_data = controller.get_event_data()
         event.title = event_data.get("title", event.title)
         event.contract_id = event_data.get("contract_id", event.contract_id)
         event.full_address = event_data.get("full_address", event.full_address)
-        event.support_contact_id = event_data.get("support_contact_id", event.support_contact_id)
+        event.support_contact_id = event_data.get("support_contact_id", 
+                                                 event.support_contact_id)
         event.start_date = event_data.get("start_date", event.start_date)
         event.end_date = event_data.get("end_date", event.end_date)
-        event.participant_count = event_data.get("participant_count", event.participant_count)
+        event.participant_count = event_data.get("participant_count", 
+                                                event.participant_count)
         event.notes = event_data.get("notes", event.notes)
         session.commit()
-        view.success_message(f"Event ({event.title}) has been updated successfully.")
+        view.success_message(
+            create_success_operation_message("updated", "event", event.title)
+        )
 
 @login_required    
 def list_events(access_token: str, filtered: bool = False):
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
+        user_id = get_user_id_from_token(access_token)
         
         # Check permissions and determine what events to show
         if has_permission(access_token, "event:list:any"):
@@ -94,7 +112,7 @@ def list_events(access_token: str, filtered: bool = False):
             ).all()
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to list events."
+                create_permission_error_message("list", "events")
             )
             return
             
@@ -103,13 +121,11 @@ def list_events(access_token: str, filtered: bool = False):
 @login_required
 def view_event(access_token: str, event_id: int):
     with Session() as session:
-        user_id = int(verify_access_token(access_token)["sub"])
-        event = session.scalars(
-            select(Event).filter(Event.id == event_id)
-        ).one_or_none()
+        user_id = get_user_id_from_token(access_token)
+        event = check_object_exists(session, Event, event_id)
         
         if not event:
-            view.wrong_message("OPERATION DENIED: Event not found.")
+            view.wrong_message(create_not_found_error_message("Event"))
             return
             
         # Check permissions
@@ -124,12 +140,12 @@ def view_event(access_token: str, event_id: int):
             # Support can view events assigned to them
             if event.support_contact_id != user_id:
                 view.wrong_message(
-                    "OPERATION DENIED: You can only view events assigned to you."
+                    f"{OPERATION_DENIED}: {ONLY_ASSIGNED_RECORDS}"
                 )
                 return
         else:
             view.wrong_message(
-                "OPERATION DENIED: You don't have permission to view events."
+                create_permission_error_message("view", "events")
             )
             return
             
@@ -143,12 +159,10 @@ def assign_support_to_event(
     Only management can use this function.
     """
     with Session() as session:
-        event = session.scalars(
-            select(Event).filter(Event.id == event_id)
-        ).one_or_none()
+        event = check_object_exists(session, Event, event_id)
         
         if not event:
-            view.wrong_message("OPERATION DENIED: Event not found.")
+            view.wrong_message(create_not_found_error_message("Event"))
             return
             
         if support_contact_id is None:
@@ -167,16 +181,14 @@ def assign_support_to_event(
 def delete_event(access_token: str, event_id: int):
     """Delete an event. Only management can delete events."""
     with Session() as session:
-        event = session.scalars(
-            select(Event).filter(Event.id == event_id)
-        ).one_or_none()
+        event = check_object_exists(session, Event, event_id)
         
         if not event:
-            view.wrong_message("OPERATION DENIED: Event not found.")
+            view.wrong_message(create_not_found_error_message("Event"))
             return
             
         session.delete(event)
         session.commit()
         view.success_message(
-            f"Event '{event.title}' (ID: {event_id}) has been deleted successfully."
+            create_success_operation_message("deleted", "event", event.title)
         )

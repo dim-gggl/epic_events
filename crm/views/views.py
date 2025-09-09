@@ -15,6 +15,7 @@ from db.config import Session
 from crm.views.config import epic_style, logo_style, white
 from crm.models import Client, Event
 from auth.validators import is_valid_password
+from constants import *
 
 
 console = Console()
@@ -138,13 +139,13 @@ class MainView:
         return console.input(email)
     
     def success_message(self, message):
-        self.display_message(message, "bold bright_green")
+        self.display_message(message, PANEL_STYLE_SUCCESS)
 
     def wrong_message(self, message):
-        self.display_message(message, "bold bright_red")
+        self.display_message(message, PANEL_STYLE_ERROR)
 
     def warning_message(self, message):
-        self.display_message(message, "bold bright_yellow")
+        self.display_message(message, PANEL_STYLE_WARNING)
     
     def get_username(self) -> str:
         return self.input("Username: ")
@@ -171,10 +172,10 @@ class MainView:
         return self.input("Contract ID: ")
     
     def get_first_contact_date(self) -> str:
-        return self.input("First contact date (format: dd/mm/yyyy): ")
+        return self.input(f"First contact date (format: {DATE_FORMAT}): ")
     
     def get_last_contact_date(self) -> str:
-        return self.input("Last contact date (format: dd/mm/yyyy): ")
+        return self.input(f"Last contact date (format: {DATE_FORMAT}): ")
 
     def get_title(self) -> str:
         return self.input("Title: ")
@@ -186,10 +187,10 @@ class MainView:
         return self.input("Support contact ID: ")
 
     def get_start_date(self) -> str:
-        return self.input("Start date (format: dd/mm/yyyy): ")
+        return self.input(f"Start date (format: {DATE_FORMAT}): ")
     
     def get_end_date(self) -> str:
-        return self.input("End date (format: dd/mm/yyyy): ")
+        return self.input(f"End date (format: {DATE_FORMAT}): ")
     
     def get_participant_count(self) -> str:
         return self.input("Participant count: ")    
@@ -231,7 +232,14 @@ class MainView:
         table.add_column(header=Text("Start Date", style=epic_style), justify="center")
         table.add_column(header=Text("Support ID", style=epic_style), justify="center")
         for event in events:
-            table.add_row(Text(str(event.id), style="bold gold1"), Text(event.title, style="bold grey100"), Text(event.start_date.strftime("%d/%m/%Y"), style="grey100"), Text(str(event.support_contact_id or "Not assigned"), style="grey100"))
+            table.add_row(
+                Text(str(event.id), style=TABLE_STYLE_ID), 
+                Text(event.title, style=TABLE_STYLE_CONTENT), 
+                Text(event.start_date.strftime(DATE_FORMAT), 
+                     style=TABLE_STYLE_CONTENT), 
+                Text(str(event.support_contact_id or "Not assigned"), 
+                     style=TABLE_STYLE_CONTENT)
+            )
         print(table, justify="center")
 
     @clear_console
@@ -241,15 +249,30 @@ class MainView:
         table.add_column()
         table.add_column()
         
-        table.add_row(Text("ID", style=logo_style), Text(str(event.id), style="grey100"))
-        table.add_row(Text("Title", style=logo_style), Text(event.title, style="grey100"))
-        table.add_row(Text("Contract ID", style=logo_style), Text(str(event.contract_id), style="grey100"))
-        table.add_row(Text("Support ID", style=logo_style), Text(str(event.support_contact_id or "Not assigned"), style="grey100"))
-        table.add_row(Text("Start Date", style=logo_style), Text(event.start_date.strftime("%d/%m/%Y"), style="grey100"))
-        table.add_row(Text("End Date", style=logo_style), Text(event.end_date.strftime("%d/%m/%Y"), style="grey100"))
-        table.add_row(Text("Participants", style=logo_style), Text(str(event.participant_count), style="grey100"))
-        table.add_row(Text("Address", style=logo_style), Text(event.full_address or "Not specified", style="grey100"))
-        table.add_row(Text("Notes", style=logo_style), Text(event.notes or "No notes", style="grey100"))
+        table.add_row(Text("ID", style=logo_style), 
+                      Text(str(event.id), style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Title", style=logo_style), 
+                      Text(event.title, style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Contract ID", style=logo_style), 
+                      Text(str(event.contract_id), style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Support ID", style=logo_style), 
+                      Text(str(event.support_contact_id or "Not assigned"), 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Start Date", style=logo_style), 
+                      Text(event.start_date.strftime(DATE_FORMAT), 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("End Date", style=logo_style), 
+                      Text(event.end_date.strftime(DATE_FORMAT), 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Participants", style=logo_style), 
+                      Text(str(event.participant_count), 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Address", style=logo_style), 
+                      Text(event.full_address or "Not specified", 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Notes", style=logo_style), 
+                      Text(event.notes or "No notes", 
+                           style=TABLE_STYLE_CONTENT))
         
         print(table, justify="center")
 
@@ -265,7 +288,16 @@ class MainView:
         table.add_column(header=Text("Signed", style=epic_style), justify="center")
         table.add_column(header=Text("Paid", style=epic_style), justify="center")
         for contract in contracts:
-            table.add_row(Text(str(contract.id), style="grey100"), Text(str(contract.client_id), style="grey100"), Text(str(contract.commercial_id), style="grey100"), Text(f"{contract.total_amount}€", style="grey100"), Text("Yes" if contract.is_signed else "No", style="grey100"), Text("Yes" if contract.is_fully_paid else "No", style="grey100"))
+            table.add_row(
+                Text(str(contract.id), style=TABLE_STYLE_CONTENT), 
+                Text(str(contract.client_id), style=TABLE_STYLE_CONTENT), 
+                Text(str(contract.commercial_id), style=TABLE_STYLE_CONTENT), 
+                Text(f"{contract.total_amount}€", style=TABLE_STYLE_CONTENT), 
+                Text("Yes" if contract.is_signed else "No", 
+                     style=TABLE_STYLE_CONTENT), 
+                Text("Yes" if contract.is_fully_paid else "No", 
+                     style=TABLE_STYLE_CONTENT)
+            )
         print(table, justify="center")
 
     @clear_console
@@ -275,15 +307,28 @@ class MainView:
         table.add_column()
         table.add_column()
         
-        table.add_row(Text("ID", style=logo_style), Text(str(contract.id), style="grey100"))
-        table.add_row(Text("Client ID", style=logo_style), Text(str(contract.client_id), style="grey100"))
-        table.add_row(Text("Commercial ID", style=logo_style), Text(str(contract.commercial_id), style="grey100"))
-        table.add_row(Text("Total Amount", style=logo_style), Text(f"{contract.total_amount}€", style="grey100"))
-        table.add_row(Text("Remaining Amount", style=logo_style), Text(f"{contract.remaining_amount}€", style="grey100"))
-        table.add_row(Text("Signed", style=logo_style), Text("Yes" if contract.is_signed else "No", style="grey100"))
-        table.add_row(Text("Fully Paid", style=logo_style), Text("Yes" if contract.is_fully_paid else "No", style="grey100"))
-        table.add_row(Text("Created At", style=logo_style), Text(contract.created_at.strftime("%d/%m/%Y"), style="grey100"))
-        table.add_row(Text("Updated At", style=logo_style), Text(contract.updated_at.strftime("%d/%m/%Y"), style="grey100"))
+        table.add_row(Text("ID", style=logo_style), 
+                      Text(str(contract.id), style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Client ID", style=logo_style), 
+                      Text(str(contract.client_id), style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Commercial ID", style=logo_style), 
+                      Text(str(contract.commercial_id), style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Total Amount", style=logo_style), 
+                      Text(f"{contract.total_amount}€", style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Remaining Amount", style=logo_style), 
+                      Text(f"{contract.remaining_amount}€", style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Signed", style=logo_style), 
+                      Text("Yes" if contract.is_signed else "No", 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Fully Paid", style=logo_style), 
+                      Text("Yes" if contract.is_fully_paid else "No", 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Created At", style=logo_style), 
+                      Text(contract.created_at.strftime(DATE_FORMAT), 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Updated At", style=logo_style), 
+                      Text(contract.updated_at.strftime(DATE_FORMAT), 
+                           style=TABLE_STYLE_CONTENT))
         
         print(table, justify="center")
 
@@ -296,7 +341,11 @@ class MainView:
         table.add_column(header=Text("Username", style=epic_style), justify="center")
         table.add_column(header=Text("Role", style=epic_style), justify="center")
         for user in users:
-            table.add_row(Text(str(user.id), style="grey100"), Text(user.username, style="grey100"), Text(str(user.role_id), style="grey100"))
+            table.add_row(
+                Text(str(user.id), style=TABLE_STYLE_CONTENT), 
+                Text(user.username, style=TABLE_STYLE_CONTENT), 
+                Text(str(user.role_id), style=TABLE_STYLE_CONTENT)
+            )
         print(table, justify="center")
 
     @clear_console
@@ -306,24 +355,38 @@ class MainView:
         table.add_column()
         table.add_column()
         
-        table.add_row(Text("ID", style=logo_style), Text(str(user.id), style="grey100"))
-        table.add_row(Text("Username", style=logo_style), Text(user.username, style="grey100"))
-        table.add_row(Text("Full Name", style=logo_style), Text(user.full_name, style="grey100"))
-        table.add_row(Text("Email", style=logo_style), Text(user.email, style="grey100"))
+        table.add_row(Text("ID", style=logo_style), 
+                      Text(str(user.id), style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Username", style=logo_style), 
+                      Text(user.username, style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Full Name", style=logo_style), 
+                      Text(user.full_name, style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Email", style=logo_style), 
+                      Text(user.email, style=TABLE_STYLE_CONTENT))
         
         # Show role name instead of ID
-        role_names = {1: 'Management', 2: 'Commercial', 3: 'Support'}
-        role_name = role_names.get(user.role_id, f'Role {user.role_id}')
-        table.add_row(Text("Role", style=logo_style), Text(f"{role_name} ({user.role_id})", style="grey100"))
+        role_name = ROLE_NAMES.get(user.role_id, f"Role {user.role_id}")
+        table.add_row(Text("Role", style=logo_style), 
+                      Text(f"{role_name} ({user.role_id})", 
+                           style=TABLE_STYLE_CONTENT))
         
-        table.add_row(Text("Active", style=logo_style), Text("Yes" if user.is_active else "No", style="grey100"))
-        table.add_row(Text("Created At", style=logo_style), Text(user.created_at.strftime("%d/%m/%Y %H:%M"), style="grey100"))
-        table.add_row(Text("Updated At", style=logo_style), Text(user.updated_at.strftime("%d/%m/%Y %H:%M"), style="grey100"))
+        table.add_row(Text("Active", style=logo_style), 
+                      Text("Yes" if user.is_active else "No", 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Created At", style=logo_style), 
+                      Text(user.created_at.strftime(f"{DATE_FORMAT} %H:%M"), 
+                           style=TABLE_STYLE_CONTENT))
+        table.add_row(Text("Updated At", style=logo_style), 
+                      Text(user.updated_at.strftime(f"{DATE_FORMAT} %H:%M"), 
+                           style=TABLE_STYLE_CONTENT))
         
         if user.last_login:
-            table.add_row(Text("Last Login", style=logo_style), Text(user.last_login.strftime("%d/%m/%Y %H:%M"), style="grey100"))
+            table.add_row(Text("Last Login", style=logo_style), 
+                          Text(user.last_login.strftime(f"{DATE_FORMAT} %H:%M"), 
+                               style=TABLE_STYLE_CONTENT))
         else:
-            table.add_row(Text("Last Login", style=logo_style), Text("Never", style="grey100"))
+            table.add_row(Text("Last Login", style=logo_style), 
+                          Text("Never", style=TABLE_STYLE_CONTENT))
             
         print(table, justify="center")
 
@@ -398,7 +461,11 @@ class MainView:
         table.add_column(header=Text("Full Name", style=epic_style), justify="center")
         table.add_column(header=Text("Commercial ID", style=epic_style), justify="center")
         for client in clients:
-            table.add_row(Text(str(client.id), style="bold gold1"), Text(client.full_name, style="grey100"), Text(str(client.commercial_id), style="grey100"))
+            table.add_row(
+                Text(str(client.id), style=TABLE_STYLE_ID), 
+                Text(client.full_name, style=TABLE_STYLE_CONTENT), 
+                Text(str(client.commercial_id), style=TABLE_STYLE_CONTENT)
+            )
         print(table, justify="center")
         
     @clear_console
@@ -411,9 +478,14 @@ class MainView:
             table = Table(title=Text(events.title.upper(), style=epic_style), box=box.ROUNDED, show_header=False)
             table.add_column()
             table.add_column()
-            table.add_row(Text("ID", style=epic_style), Text(str(event.id), style="grey100"))
-            table.add_row(Text("Start Date", style=epic_style), Text(event.start_date.strftime("%d/%m/%Y"), style="grey100"))
-            table.add_row(Text("Participant Count", style=epic_style), Text(str(event.participant_count), style="grey100"))
+            table.add_row(Text("ID", style=epic_style), 
+                          Text(str(event.id), style=TABLE_STYLE_CONTENT))
+            table.add_row(Text("Start Date", style=epic_style), 
+                          Text(event.start_date.strftime(DATE_FORMAT), 
+                               style=TABLE_STYLE_CONTENT))
+            table.add_row(Text("Participant Count", style=epic_style), 
+                          Text(str(event.participant_count), 
+                               style=TABLE_STYLE_CONTENT))
         print(table, justify="center")
 
     @clear_console
@@ -438,9 +510,12 @@ class MainView:
             table.add_column()
             if not fields:
                 for key, value in obj.__dict__.items():
-                    table.add_row(Text(key.capitalize(), style=logo_style), Text(str(value), style="grey100"))
+                    table.add_row(Text(key.capitalize(), style=logo_style), 
+                          Text(str(value), style=TABLE_STYLE_CONTENT))
                 print(table, justify="center")
             else:
                 for field in fields:
-                    table.add_row(Text(field.capitalize(), style=logo_style), Text(str(getattr(obj, field)), style="grey100"))
+                    table.add_row(Text(field.capitalize(), style=logo_style), 
+                                  Text(str(getattr(obj, field)), 
+                                       style=TABLE_STYLE_CONTENT))
                 print(table, justify="center")

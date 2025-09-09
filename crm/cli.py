@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from pathlib import Path
 from io import StringIO
 
@@ -32,7 +33,7 @@ from auth.login import login as login_user
 from auth.logout import logout as logout_user
 from auth.jwt.token_storage import (
     get_access_token, cleanup_token_file, get_user_info
-    )
+)
 from auth.jwt.refresh_token import refresh_access_token
 from crm.views.views import clear_console
 from exceptions import InvalidTokenError, ExpiredTokenError
@@ -44,6 +45,7 @@ print = console.print
 
 view = MainView()
 
+# Configure rich_click settings
 click.rich_click.USE_RICH_MARKUP = True
 click.rich_click.USE_MARKDOWN = True
 click.rich_click.SHOW_ARGUMENTS = True
@@ -51,6 +53,7 @@ click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 click.rich_click.SHOW_METAVARS_COLUMN = True
 click.rich_click.APPEND_METAVARS_HELP = True
 
+# Configure rich_click styles
 click.rich_click.STYLE_OPTION = "bold medium_spring_green"
 click.rich_click.STYLE_ARGUMENT = "bold gold1"
 click.rich_click.STYLE_COMMAND = "bold orange_red1"
@@ -83,55 +86,64 @@ def build_logo_text() -> Text:
 def format_help_with_styles(help_text: str) -> Text:
     """Format help text with rich_click styles applied."""
     styled_text = Text()
-    lines = help_text.split('\n')
+    lines = help_text.split("\n")
     
     for line in lines:
         line_stripped = line.strip()
         
         # Usage line
-        if line_stripped.startswith('Usage:'):
-            styled_text.append('Usage: ', style="bold gold1")  # STYLE_USAGE
-            usage_cmd = line_stripped.strip().split(' ')[1] + ' '
-            styled_text.append(usage_cmd, style="bold orange_red1")  
-            styled_text.append(' '.join(line_stripped.strip().split(' ')[2:]), style="dim medium_spring_green")
-            styled_text.append('\n')
+        if line_stripped.startswith("Usage:"):
+            styled_text.append("Usage: ", style="bold gold1")
+            usage_parts = line_stripped.strip().split(" ")
+            if len(usage_parts) > 1:
+                usage_cmd = usage_parts[1] + " "
+                styled_text.append(usage_cmd, style="bold orange_red1")
+                if len(usage_parts) > 2:
+                    remaining = " ".join(usage_parts[2:])
+                    styled_text.append(remaining, 
+                                     style="dim medium_spring_green")
+            styled_text.append("\n")
         
         # Section headers (Commands:, Options:, etc.)
-        elif line_stripped.endswith(':') and not line.startswith('  '):
-            styled_text.append(line_stripped, style="bold medium_spring_green")  # STYLE_HEADER_TEXT
-            styled_text.append('\n')
+        elif (line_stripped.endswith(":") and 
+              not line.startswith("  ")):
+            styled_text.append(line_stripped, 
+                             style="bold medium_spring_green")
+            styled_text.append("\n")
         
         # Command/option items (indented lines with command names)
-        elif line.startswith('  ') and not line.startswith('    '):
+        elif (line.startswith("  ") and 
+              not line.startswith("    ")):
             parts = line_stripped.split(None, 1)
             if parts:
                 # Command/option name
-                styled_text.append('  ', style="grey100")
-                styled_text.append(parts[0], style="bold orange_red1")  # STYLE_COMMAND
+                styled_text.append("  ", style="grey100")
+                styled_text.append(parts[0], style="bold orange_red1")
                 
                 # Description if present
                 if len(parts) > 1:
-                    styled_text.append('  ', style="grey100")
-                    styled_text.append(parts[1], style="dim grey100")  # STYLE_HELPTEXT
-                styled_text.append('\n')
+                    styled_text.append("  ", style="grey100")
+                    styled_text.append(parts[1], style="dim grey100")
+                styled_text.append("\n")
             else:
                 styled_text.append(line, style="grey100")
-                styled_text.append('\n')
+                styled_text.append("\n")
         
         # Option lines with -- or -
-        elif ('--' in line_stripped or line_stripped.startswith('-')) and line.startswith('    '):
+        elif (("--" in line_stripped or line_stripped.startswith("-")) and 
+              line.startswith("    ")):
             # This is likely an option description continuation
-            styled_text.append(line, style="dim grey100")  # STYLE_HELPTEXT
-            styled_text.append('\n')
+            styled_text.append(line, style="dim grey100")
+            styled_text.append("\n")
         
         # Empty lines
         elif not line_stripped:
-            styled_text.append('\n')
+            styled_text.append("\n")
         
         # Regular description lines
         else:
-            styled_text.append(line, style="grey100")  # STYLE_HELPTEXT
-            styled_text.append('\n')
+            styled_text.append(line, style="grey100")
+            styled_text.append("\n")
     
     return styled_text
 
@@ -141,7 +153,8 @@ def render_help_with_logo(ctx: click.Context) -> None:
     
     try:
         raw_logo = LOGO_PATH.read_text(encoding="utf-8")
-        max_logo_width = max((len(line) for line in raw_logo.splitlines()), default=40)
+        max_logo_width = max((len(line) for line in raw_logo.splitlines()), 
+                           default=40)
     except Exception:
         max_logo_width = 40
 
@@ -159,24 +172,25 @@ def render_help_with_logo(ctx: click.Context) -> None:
     
     try:
         # Generate help by using Click's built-in help mechanism
-        with click.Context(ctx.command, info_name=ctx.info_name, parent=ctx.parent) as help_ctx:
+        with click.Context(ctx.command, info_name=ctx.info_name, 
+                          parent=ctx.parent) as help_ctx:
             print(ctx.command.get_help(help_ctx))
     except Exception:
         # Fallback: create basic help content
         print(f"Usage: {ctx.command.name} [OPTIONS] COMMAND [ARGS]...")
         print()
-        if hasattr(ctx.command, 'commands') and ctx.command.commands:
+        if hasattr(ctx.command, "commands") and ctx.command.commands:
             print("Commands:")
             for name, cmd in ctx.command.commands.items():
                 desc = cmd.short_help or cmd.help or ""
                 print(f"  {name:<12} {desc}")
-        if hasattr(ctx.command, 'params') and ctx.command.params:
+        if hasattr(ctx.command, "params") and ctx.command.params:
             print()
             print("Options:")
             for param in ctx.command.params:
-                if hasattr(param, 'opts') and param.opts:
-                    opts_str = ', '.join(param.opts)
-                    help_str = getattr(param, 'help', '') or ''
+                if hasattr(param, "opts") and param.opts:
+                    opts_str = ", ".join(param.opts)
+                    help_str = getattr(param, "help", "") or ""
                     print(f"  {opts_str:<20} {help_str}")
     finally:
         sys.stdout = old_stdout
@@ -184,7 +198,8 @@ def render_help_with_logo(ctx: click.Context) -> None:
     help_text = help_buffer.getvalue()
     
     # Clean and format the help text with rich_click styles
-    help_content = format_help_with_styles(help_text) if help_text else Text("No help available")
+    help_content = (format_help_with_styles(help_text) if help_text 
+                   else Text("No help available"))
     
     right = Panel(
         help_content,
@@ -268,17 +283,20 @@ def logout() -> None:
 
 
 @command.command()  
-@click.option("-r", "--refresh-token", help="Raw refresh token", required=True)
+@click.option("-r", "--refresh-token", help="Raw refresh token", 
+              required=True)
 def refresh(refresh_token: str) -> None:
     """Refresh access token using refresh token."""
     try:
         user_info = get_user_info()
-        if not user_info or not user_info.get('user_id'):
+        if not user_info or not user_info.get("user_id"):
             view.wrong_message("No user session found. Please login first.")
             return
             
-        user_id = user_info['user_id']
-        new_access, new_refresh, refresh_exp, refresh_hash = refresh_access_token(user_id, refresh_token)
+        user_id = user_info["user_id"]
+        new_access, new_refresh, refresh_exp, refresh_hash = (
+            refresh_access_token(user_id, refresh_token)
+        )
         
         view.display_login(new_access, new_refresh, refresh_exp)
         
@@ -299,11 +317,11 @@ def status() -> None:
             
         user_info = get_user_info()
         if user_info:
-            user_id = user_info.get('user_id', 'Unknown')
-            role_id = user_info.get('role_id', 'Unknown')
+            user_id = user_info.get("user_id", "Unknown")
+            role_id = user_info.get("role_id", "Unknown")
             
-            role_names = {1: 'Management', 2: 'Commercial', 3: 'Support'}
-            role_name = role_names.get(int(role_id), f'Role {role_id}')
+            role_names = {1: "Management", 2: "Commercial", 3: "Support"}
+            role_name = role_names.get(int(role_id), f"Role {role_id}")
             
             view.success_message(
                 f"Authenticated as User ID: {user_id}\n"
@@ -311,7 +329,9 @@ def status() -> None:
                 f"Token available in temporary storage"
             )
         else:
-            view.warning_message("Authentication token found but user info unavailable.")
+            view.warning_message(
+                "Authentication token found but user info unavailable."
+            )
             
     except Exception as e:
         view.wrong_message(f"Status check failed: {str(e)}")
@@ -329,7 +349,8 @@ attach_help(client)
 
 
 @client.command("create")
-@click.option("-t", "--token", help="Access token with commercial role", required=False)
+@click.option("-t", "--token", help="Access token with commercial role", 
+              required=False)
 def client_create(token: str | None) -> None:
     """Client management commands."""
     token = resolve_token(token)
@@ -338,7 +359,8 @@ def client_create(token: str | None) -> None:
 
 @client.command("list")
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
+@click.option("--only-mine", is_flag=True, help="Show only your clients", 
+              default=False)
 def client_list(token: str | None, only_mine: bool) -> None:
     """Clients appearing as a list when on fumait tours les genard"""
     token = resolve_token(token)
@@ -347,7 +369,8 @@ def client_list(token: str | None, only_mine: bool) -> None:
 
 @client.command("view")
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("-i", "--client-id", type=int, required=False, help="Client ID")
+@click.option("-i", "--client-id", type=int, required=False, 
+              help="Client ID")
 def client_view(token: str | None, client_id: int | None) -> None:
     token = resolve_token(token)
     if client_id is None:
@@ -398,7 +421,8 @@ def event_create(token: str | None) -> None:
 
 @event.command("list")
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("--only-mine", is_flag=True, default=False, help="Show only events assigned to you")
+@click.option("--only-mine", is_flag=True, default=False, 
+              help="Show only events assigned to you")
 def event_list(token: str | None, only_mine: bool) -> None:
     """List all events or, optionally, only the events assigned to the current commercial user."""
     token = resolve_token(token)
@@ -426,8 +450,10 @@ def event_delete(event_id: int, token: str | None) -> None:
 @event.command("update")
 @click.argument("event_id", type=int)
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("-s", "--support-id", type=int, help="Support contact ID to assign", required=False)
-def event_update(event_id: int, token: str | None, support_id: int | None) -> None:
+@click.option("-s", "--support-id", type=int, 
+              help="Support contact ID to assign", required=False)
+def event_update(event_id: int, token: str | None, 
+                 support_id: int | None) -> None:
     """Assign a support member to an event. Only management can use this command."""
     token = resolve_token(token)
     assign_support_to_event(token, event_id, support_id)
@@ -436,8 +462,10 @@ def event_update(event_id: int, token: str | None, support_id: int | None) -> No
 @event.command("edit")
 @click.argument("event_id", type=int)
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("--support_id", type=int, help="Support contact ID to assign", required=False)
-def event_edit(event_id: int, token: str | None, support_id: int | None) -> None:
+@click.option("--support_id", type=int, 
+              help="Support contact ID to assign", required=False)
+def event_edit(event_id: int, token: str | None, 
+               support_id: int | None) -> None:
     """Edit all event details. Management and assigned support can edit events."""
     token = resolve_token(token)
     update_event(token, event_id)
@@ -456,12 +484,18 @@ attach_help(user)
 
 @user.command("create")
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("-u", "--username", help="Username for the new user", required=False)
-@click.option("-n", "--full-name", help="Full name of the new user", required=False)
-@click.option("-e", "--email", help="Email address of the new user", required=False)
-@click.option("-r", "--role-id", type=int, help="Role ID (1=Management, 2=Commercial, 3=Support)", required=False)
-def user_create(token: str | None, username: str | None, full_name: str | None, 
-                email: str | None, role_id: int | None) -> None:
+@click.option("-u", "--username", help="Username for the new user", 
+              required=False)
+@click.option("-n", "--full-name", help="Full name of the new user", 
+              required=False)
+@click.option("-e", "--email", help="Email address of the new user", 
+              required=False)
+@click.option("-r", "--role-id", type=int, 
+              help="Role ID (1=Management, 2=Commercial, 3=Support)", 
+              required=False)
+def user_create(token: str | None, username: str | None, 
+                full_name: str | None, email: str | None, 
+                role_id: int | None) -> None:
     """Create a new user. Only management can create users."""
     token = resolve_token(token)
     create_user(token, username, full_name, email, None, role_id)
@@ -492,7 +526,8 @@ def user_view(user_id: int, token: str | None) -> None:
 @click.option("-e", "--email", help="New email address", required=False)
 @click.option("-r", "--role-id", type=int, help="New role ID", required=False)
 def user_update(user_id: int, token: str | None, username: str | None, 
-                full_name: str | None, email: str | None, role_id: int | None) -> None:
+                full_name: str | None, email: str | None, 
+                role_id: int | None) -> None:
     """Update a user. Only management can update users."""
     token = resolve_token(token)
     update_user(token, user_id, username=username, full_name=full_name, 
@@ -522,22 +557,30 @@ attach_help(contract)
 @contract.command("create")
 @click.option("-t", "--token", help="Access token", required=False)
 @click.option("-c", "--client-id", type=int, help="Client ID", required=False)
-@click.option("-s", "--commercial-id", type=int, help="Commercial ID", required=False)
-@click.option("--total-amount", type=float, help="Total contract amount", required=False)
-@click.option("--remaining-amount", type=float, help="Remaining amount", required=False)
-@click.option("--signed", is_flag=True, help="Mark contract as signed", required=False)
-@click.option("--fully-paid", is_flag=True, help="Mark contract as fully paid", required=False)
-def contract_create(token: str | None, client_id: int | None, commercial_id: int | None,
-                    total_amount: float | None, remaining_amount: float | None,
-                    signed: bool, fully_paid: bool) -> None:
+@click.option("-s", "--commercial-id", type=int, help="Commercial ID", 
+              required=False)
+@click.option("--total-amount", type=float, help="Total contract amount", 
+              required=False)
+@click.option("--remaining-amount", type=float, help="Remaining amount", 
+              required=False)
+@click.option("--signed", is_flag=True, help="Mark contract as signed", 
+              required=False)
+@click.option("--fully-paid", is_flag=True, 
+              help="Mark contract as fully paid", required=False)
+def contract_create(token: str | None, client_id: int | None, 
+                    commercial_id: int | None, total_amount: float | None,
+                    remaining_amount: float | None, signed: bool, 
+                    fully_paid: bool) -> None:
     """Create a contract linking a commercial with a client. Only management can create contracts."""
     token = resolve_token(token)
-    create_contract(token, client_id, commercial_id, total_amount, remaining_amount, signed, fully_paid)
+    create_contract(token, client_id, commercial_id, total_amount, 
+                   remaining_amount, signed, fully_paid)
 
 
 @contract.command("list")
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("--own", is_flag=True, default=False, help="Show only the contracts of the current user")
+@click.option("--own", is_flag=True, default=False, 
+              help="Show only the contracts of the current user")
 def contract_list(token: str | None, own: bool) -> None:
     """List contracts. Access depends on user role."""
     token = resolve_token(token)
@@ -556,16 +599,22 @@ def contract_view(contract_id: int, token: str | None) -> None:
 @contract.command("update")
 @click.argument("contract_id", type=int)
 @click.option("-t", "--token", help="Access token", required=False)
-@click.option("--total-amount", type=float, help="Total contract amount", required=False)
-@click.option("--remaining-amount", type=float, help="Remaining amount", required=False)
-@click.option("--signed", is_flag=True, help="Mark contract as signed", required=False)
-@click.option("--fully-paid", is_flag=True, help="Mark contract as fully paid", required=False)
-def contract_update(contract_id: int, token: str | None, total_amount: float | None,
-                    remaining_amount: float | None, signed: bool, fully_paid: bool) -> None:
+@click.option("--total-amount", type=float, help="Total contract amount", 
+              required=False)
+@click.option("--remaining-amount", type=float, help="Remaining amount", 
+              required=False)
+@click.option("--signed", is_flag=True, help="Mark contract as signed", 
+              required=False)
+@click.option("--fully-paid", is_flag=True, 
+              help="Mark contract as fully paid", required=False)
+def contract_update(contract_id: int, token: str | None, 
+                    total_amount: float | None, remaining_amount: float | None, 
+                    signed: bool, fully_paid: bool) -> None:
     """Update a contract. Management and owning commercial can update contracts."""
     token = resolve_token(token)
-    update_contract(token, contract_id, total_amount=total_amount, remaining_amount=remaining_amount,
-                    is_signed=signed, is_fully_paid=fully_paid)
+    update_contract(token, contract_id, total_amount=total_amount, 
+                   remaining_amount=remaining_amount, is_signed=signed, 
+                   is_fully_paid=fully_paid)
 
 
 @contract.command("delete")
