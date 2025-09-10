@@ -3,7 +3,7 @@ import getpass
 import sys
 
 from rich.console import Console
-from views.views import MainView
+from src.views.views import MainView
 
 from src.auth.validators import is_valid_password
 

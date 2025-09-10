@@ -11,10 +11,10 @@ from src.controllers.main_controller import main_controller
 from src.auth.jwt.token_storage import get_access_token
 from src.data_access.create_tables import init_db
 from src.data_access.create_manager import init_manager
-from views.config import epic_style, logo_style
-from views.views import clear_console
+from src.views.config import epic_style, logo_style
+from src.views.views import clear_console
 
-LOGO_PATH = Path("views/logo.txt")
+LOGO_PATH = Path("src/views/logo.txt")
 console = Console()
 print = console.print
 
@@ -296,5 +296,42 @@ def assign_support(event_id, support_id):
 def event_delete(event_id):
     token = get_access_token()
     main_controller.delete_event(token, event_id)
+
+# Company commands
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def company(ctx: click.Context):
+    """Company management commands."""
+    if ctx.invoked_subcommand is None:
+        render_help_with_logo(ctx)
+attach_help(company)
+
+@company.command("create")
+def company_create():
+    token = get_access_token()
+    main_controller.create_company(token)
+
+@company.command("list")
+def company_list():
+    token = get_access_token()
+    main_controller.list_companies(token)
+
+@company.command("view")
+@click.argument("company_id", type=int)
+def company_view(company_id):
+    token = get_access_token()
+    main_controller.view_company(token, company_id)
+
+@company.command("update")
+@click.argument("company_id", type=int)
+def company_update(company_id):
+    token = get_access_token()
+    main_controller.update_company(token, company_id)
+
+@company.command("delete")
+@click.argument("company_id", type=int)
+def company_delete(company_id):
+    token = get_access_token()
+    main_controller.delete_company(token, company_id)
 
 command = cli

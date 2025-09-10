@@ -1,7 +1,7 @@
 from src.data_access.repository import client_repository, contract_repository
 from src.data_access.config import Session
 from src.crm.models import Client
-from src.auth.permissions import has_permission_for_client
+from src.auth.permissions import has_permission_for_client, has_permission
 from typing import List, Optional
 
 class ClientLogic:

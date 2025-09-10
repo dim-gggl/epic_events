@@ -1,7 +1,7 @@
 from src.auth.jwt.token_storage import get_user_info, cleanup_token_file
 from src.data_access.config import Session
 from src.crm.models import User
-from views.views import MainView
+from src.views.views import MainView
 from datetime import datetime, timezone
 from src.sentry.observability import log_authentication_event, log_error
 

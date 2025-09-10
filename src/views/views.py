@@ -1,6 +1,8 @@
 import getpass
 import sys
 
+from functools import wraps
+from typing import Callable, Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -13,7 +15,7 @@ from rich import box
 from sqlalchemy import select
 
 from src.data_access.config import Session
-from views.config import epic_style, logo_style, white
+from src.views.config import epic_style, logo_style, white
 from src.crm.models import Client, Event
 
 
@@ -36,6 +38,36 @@ def clear_console(func):
 
 def centered(content: Text | str, style: Style=None) -> Align:
     return Align.center(content, style=style)
+
+def center_content(style: str = "bold grey100") -> Callable:
+    """
+    Decorator that centers input prompts by left-padding the prompt string
+    based on the current console width. Works with methods that call `self.input(...)`.
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(self, *args: Any, **kwargs: Any):
+            original_input = getattr(self, "input")
+
+            def centered_input(prompt: str = "", *a: Any, **k: Any):
+                # Style the prompt using Rich markup
+                styled = f"[{style}]{prompt}[/]"
+                # Compute display cell length with Rich (handles ANSI/emoji widths)
+                text_obj = Text.from_markup(styled)
+                width = getattr(getattr(self, "console", None), "width", 80)
+                pad = max(0, (width - text_obj.cell_len) // 2)
+                padded = f"{' ' * pad}{styled}"
+                return original_input(padded, *a, **k)
+
+            # Temporarily override `self.input`
+            setattr(self, "input", centered_input)
+            try:
+                return func(self, *args, **kwargs)
+            finally:
+                # Always restore original input
+                setattr(self, "input", original_input)
+        return wrapper
+    return decorator
 
 PRESS_ENTER_CENTERED = centered("Press ENTER", "orange_red1")
 
@@ -466,10 +498,10 @@ class MainView:
         )
         table.add_row(
             Text("Events", style=logo_style), 
-            Text(str(len(user.events)), 
+            Text(str(len(user.supported_events)), 
             style="grey100")
         )
-        
+
         if user.last_login:
             table.add_row(
                 Text("Last Login", 
@@ -650,3 +682,53 @@ class MainView:
                     style="grey100")
                 )
             print(table, justify="center")
+            
+    @clear_console
+    def display_companies(self, companies):
+        """Display a list of companies."""
+        print(banner(f"COMPANIES ({len(companies)})", white, "center", "bold gold1"))
+        table = Table(box=box.MINIMAL, show_header=True)
+        table.add_column(header=Text("ID", style=epic_style), justify="center")
+        table.add_column(header=Text("Name", style=epic_style), justify="center")
+        table.add_column(header=Text("Created", style=epic_style), justify="center")
+        for company in companies:
+            table.add_row(
+                Text(str(company.id), style="grey100"), 
+                Text(company.name, style="grey100"), 
+                Text(company.created_at.strftime("%d/%m/%Y"), style="grey100")
+            )
+        print(table, justify="center")
+
+    @clear_console
+    def display_company(self, company):
+        """Display company details."""
+        table = Table(
+            title=Text(company.name.upper(), style=logo_style), 
+            box=box.ROUNDED, 
+            show_header=False
+        )
+        table.add_column()
+        table.add_column()
+        
+        table.add_row(
+            Text("ID", style=logo_style), 
+            Text(str(company.id), style="grey100")
+        )
+        table.add_row(
+            Text("Name", style=logo_style), 
+            Text(company.name, style="grey100")
+        )
+        table.add_row(
+            Text("Created", style=logo_style), 
+            Text(company.created_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
+        )
+        table.add_row(
+            Text("Updated", style=logo_style), 
+            Text(company.updated_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
+        )
+        table.add_row(
+            Text("Clients", style=logo_style), 
+            Text(str(len(company.clients)), style="grey100")
+        )
+        
+        print(table, justify="center")

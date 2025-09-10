@@ -1,11 +1,12 @@
 from src.data_access.repository import user_repository
 from src.data_access.config import Session
 from src.crm.models import User
-from src.auth.permissions import has_permission_for_user
+from src.auth.permissions import has_permission_for_user, require_permission
 from src.auth.hashing import hash_password
 from typing import List, Optional
 
 class UserLogic:
+    @require_permission("user:create")
     def create_user(self, user_data: dict) -> User:
         with Session() as session:
             user_data["password_hash"] = hash_password(user_data["password"])
@@ -15,10 +16,12 @@ class UserLogic:
             session.refresh(user)
             return user
 
+    @require_permission("user:list")
     def get_users(self, access_token: str) -> List[User]:
         with Session() as session:
             return user_repository.get_all(session)
 
+    @require_permission("user:view")
     def get_user_by_id(self, user_id: int) -> Optional[User]:
         with Session() as session:
             user = user_repository.get_by_id(user_id, session)
@@ -29,6 +32,7 @@ class UserLogic:
                 _ = user.supported_events
             return user
 
+    @require_permission("user:update")
     def update_user(self, access_token: str, user_id: int, user_data: dict) -> Optional[User]:
         with Session() as session:
             user = user_repository.get_by_id(user_id, session)
@@ -44,6 +48,7 @@ class UserLogic:
                 session.refresh(updated_user)
             return updated_user
 
+    @require_permission("user:delete")
     def delete_user(self, access_token: str, current_user_id: int, user_id_to_delete: int) -> bool:
         with Session() as session:
             if current_user_id == user_id_to_delete:

@@ -18,6 +18,7 @@ DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "contract:list", "contract:view", "event:list", "event:view",
         "client:create", "client:update:own", "contract:update:own",
         "event:create:own_client",
+        "company:list", "company:view", "company:create",
     ],
     "management": [
         "user:list", "user:view", "user:create", "user:update", "user:delete",
@@ -25,6 +26,7 @@ DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "client:list", "client:view", "client:create", "client:update", "client:delete",
         "contract:list", "contract:view", "contract:create", "contract:update", "contract:delete",
         "event:list", "event:view", "event:create", "event:update", "event:delete",
+        "company:list", "company:view", "company:create", "company:update", "company:delete",
     ],
 }
 
@@ -68,7 +70,10 @@ def require_permission(permission: str):
         @wraps(func)
         def wrapper(access_token: str, *args, **kwargs):
             if not has_permission(access_token, permission):
-                raise PermissionError(f"You don't have permission to {permission.replace(':', ' ')}.")
+                raise PermissionError(
+                    f"You don't have permission to "
+                    f"{permission.split(':')[1]} {permission.split(':')[0]}"
+                )
             return func(access_token, *args, **kwargs)
         return wrapper
     return decorator
