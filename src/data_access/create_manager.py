@@ -6,12 +6,35 @@ from typing import Optional
 
 from sqlalchemy import select
 
-from db.config import engine, Session
-from auth.validators import is_valid_username, is_valid_email, is_valid_password
-from auth.hashing import hash_password
-from crm.models import User, Role
-from auth.utils import _prompt_password
-from crm.permissions import DEFAULT_ROLE_PERMISSIONS
+from src.data_access.config import engine, Session
+from src.auth.validators import is_valid_username, is_valid_email, is_valid_password
+from src.auth.hashing import hash_password
+from src.crm.models import User, Role
+from src.auth.utils import _prompt_password
+from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS
+
+
+def _ensure_root() -> None:
+    """Abort if the current process is not run with administrative privileges.
+
+    On POSIX (macOS/Linux), require EUID == 0 (i.e., 'sudo ...').
+    On Windows, require an elevated process (Administrator).
+    """
+    if os.name == "nt":
+        try:
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            is_admin = False
+        if not is_admin:
+            sys.stderr.write("This command must be run as root.\n")
+            sys.exit(1)
+    else:
+        if os.geteuid() != 0:
+            sys.stderr.write("This command must be run with root privileges.\n")
+            sys.exit(1)
+
+
+import ctypes
 
 
 def _ensure_root() -> None:

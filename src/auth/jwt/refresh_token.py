@@ -8,11 +8,11 @@ from .config import (
     REFRESH_TOKEN_LIFETIME_DAYS,
     SECRET_KEY
 )
-from db.config import Session
-from crm.models import User
-from crm.views.views import MainView
-from auth.jwt.token_storage import update_access_token
-from exceptions import InvalidTokenError, ExpiredTokenError
+from src.data_access.config import Session
+from src.crm.models import User
+from views.views import MainView
+from src.auth.jwt.token_storage import update_access_token
+from src.exceptions import InvalidTokenError, ExpiredTokenError
 
 view = MainView()
 

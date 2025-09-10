@@ -9,9 +9,8 @@ from sqlalchemy.sql import func
 from sqlalchemy import Numeric, ARRAY
 from sqlalchemy.ext.mutable import MutableList
 
-from db.config import Base
-from exceptions import OperationDeniedError
-
+from src.data_access.config import Base
+from src.exceptions import OperationDeniedError
 
 class Permission(StrEnum):
     LIST_USERS = "list_users"

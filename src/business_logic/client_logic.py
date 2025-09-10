@@ -1,0 +1,58 @@
+from src.data_access.repository import client_repository, contract_repository
+from src.data_access.config import Session
+from src.crm.models import Client
+from src.auth.permissions import has_permission_for_client
+from typing import List, Optional
+
+class ClientLogic:
+    def create_client(self, client_data: dict, commercial_id: int) -> Client:
+        with Session() as session:
+            client_data["commercial_id"] = commercial_id
+            client = client_repository.create(client_data, session)
+            session.commit()
+            session.refresh(client)
+            return client
+
+    def get_clients(self, access_token: str, user_id: int, filtered: bool) -> List[Client]:
+        with Session() as session:
+            if filtered:
+                return client_repository.find_by(session, commercial_id=user_id)
+            else:
+                return client_repository.get_all(session)
+
+    def get_client_by_id(self, client_id: int) -> Optional[Client]:
+        with Session() as session:
+            return client_repository.get_by_id(client_id, session)
+
+    def update_client(self, access_token: str, user_id: int, client_id: int, client_data: dict) -> Optional[Client]:
+        with Session() as session:
+            client = client_repository.get_by_id(client_id, session)
+            if not client:
+                return None
+            
+            if not has_permission_for_client(access_token, "update", client, user_id):
+                raise PermissionError("You don't have permission to update this client.")
+
+            updated_client = client_repository.update(client_id, client_data, session)
+            session.commit()
+            if updated_client:
+                session.refresh(updated_client)
+            return updated_client
+
+    def delete_client(self, access_token: str, client_id: int) -> bool:
+        with Session() as session:
+            client = client_repository.get_by_id(client_id, session)
+            if not client:
+                return False
+
+            # Business rule: cannot delete client with associated contracts
+            contracts = contract_repository.find_by(session, client_id=client_id)
+            if contracts:
+                raise ValueError("Cannot delete a client with associated contracts.")
+
+            deleted = client_repository.delete(client_id, session)
+            if deleted:
+                session.commit()
+            return deleted
+
+client_logic = ClientLogic()

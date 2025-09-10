@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-from auth.utils import get_secret_key
-from db.config import _build_url
+from src.auth.utils import get_secret_key
+from src.data_access.config import _build_url
 
 load_dotenv()
 

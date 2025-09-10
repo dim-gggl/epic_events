@@ -1,6 +1,6 @@
-from db.config import engine, Session, metadata
-from crm.models import Role, User, Client, Company, Contract, Event
-from crm.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
+from src.data_access.config import engine, Session, metadata
+from src.crm.models import Role, User, Client, Company, Contract, Event
+from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
 
 
 def _seed_roles(session: Session) -> None:

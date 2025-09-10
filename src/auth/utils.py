@@ -3,9 +3,9 @@ import getpass
 import sys
 
 from rich.console import Console
-from crm.views.views import MainView
+from views.views import MainView
 
-from auth.validators import is_valid_password
+from src.auth.validators import is_valid_password
 
 
 view = MainView()
