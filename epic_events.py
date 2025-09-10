@@ -1,6 +1,6 @@
 
-from crm.cli import command as cli
-from sentry.observability import init_sentry
+from src.cli.main import command as cli
+from src.sentry.observability import init_sentry
 
 
 def main():
