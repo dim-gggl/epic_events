@@ -23,10 +23,10 @@ DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
     "management": [
         "user:list", "user:view", "user:create", "user:update", "user:delete",
         "role:list", "role:view", "role:assign",
-        "client:list", "client:view", "client:create", "client:update", "client:delete",
+        "client:list", "client:view", "client:create",
         "contract:list", "contract:view", "contract:create", "contract:update", "contract:delete",
-        "event:list", "event:view", "event:create", "event:update", "event:delete",
-        "company:list", "company:view", "company:create", "company:update", "company:delete",
+        "event:list", "event:view", "event:create", "event:update",
+        "company:list", "company:view"
     ],
 }
 
@@ -55,26 +55,43 @@ def has_permission(access_token: str, required_permission: str) -> bool:
 # Decorators
 def login_required(func):
     @wraps(func)
-    def wrapper(access_token: str, *args, **kwargs):
+    def wrapper(*args, **kwargs):
+        # For class methods, access_token is the second argument (after self)
+        if len(args) >= 2 and isinstance(args[1], str):
+            access_token = args[1]
+        elif 'access_token' in kwargs:
+            access_token = kwargs['access_token']
+        else:
+            raise PermissionError("Access token not found in function arguments")
+        
         if not access_token:
             raise PermissionError("Authentication token is required.")
         try:
             verify_access_token(access_token)
         except Exception as e:
             raise PermissionError(f"Invalid token: {e}")
-        return func(access_token, *args, **kwargs)
+        return func(*args, **kwargs)
     return wrapper
 
 def require_permission(permission: str):
     def decorator(func):
         @wraps(func)
-        def wrapper(access_token: str, *args, **kwargs):
+        
+        def wrapper(*args, **kwargs):
+            # For class methods, access_token is the second argument (after self)
+            if len(args) >= 2 and isinstance(args[1], str):
+                access_token = args[1]
+            elif 'access_token' in kwargs:
+                access_token = kwargs['access_token']
+            else:
+                raise PermissionError("Access token not found in function arguments")
+            
             if not has_permission(access_token, permission):
                 raise PermissionError(
                     f"You don't have permission to "
                     f"{permission.split(':')[1]} {permission.split(':')[0]}"
                 )
-            return func(access_token, *args, **kwargs)
+            return func(*args, **kwargs)
         return wrapper
     return decorator
 

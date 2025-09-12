@@ -22,7 +22,7 @@ class UserLogic:
             return user_repository.get_all(session)
 
     @require_permission("user:view")
-    def get_user_by_id(self, user_id: int) -> Optional[User]:
+    def get_user_by_id(self, access_token: str, user_id: int) -> Optional[User]:
         with Session() as session:
             user = user_repository.get_by_id(user_id, session)
             if user:

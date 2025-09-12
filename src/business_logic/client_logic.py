@@ -3,8 +3,11 @@ from src.data_access.config import Session
 from src.crm.models import Client
 from src.auth.permissions import has_permission_for_client, has_permission
 from typing import List, Optional
+from src.auth.permissions import require_permission, login_required
+
 
 class ClientLogic:
+    @require_permission("client:create")
     def create_client(self, client_data: dict, commercial_id: int) -> Client:
         with Session() as session:
             client_data["commercial_id"] = commercial_id
@@ -13,6 +16,7 @@ class ClientLogic:
             session.refresh(client)
             return client
 
+    @login_required
     def get_clients(self, access_token: str, user_id: int, filtered: bool) -> List[Client]:
         with Session() as session:
             if filtered:
@@ -20,30 +24,30 @@ class ClientLogic:
             else:
                 return client_repository.get_all(session)
 
-    def get_client_by_id(self, client_id: int) -> Optional[Client]:
+    @require_permission("client:view")
+    def get_client_by_id(self, access_token: str, client_id: int) -> Optional[Client]:
         with Session() as session:
             return client_repository.get_by_id(client_id, session)
 
+    @require_permission("client:update")
     def update_client(self, access_token: str, user_id: int, client_id: int, client_data: dict) -> Optional[Client]:
         with Session() as session:
             client = client_repository.get_by_id(client_id, session)
             if not client:
-                return None
+                return
             
-            if not has_permission_for_client(access_token, "update", client, user_id):
-                raise PermissionError("You don't have permission to update this client.")
-
             updated_client = client_repository.update(client_id, client_data, session)
             session.commit()
             if updated_client:
                 session.refresh(updated_client)
             return updated_client
 
+    @require_permission("client:delete")
     def delete_client(self, access_token: str, client_id: int) -> bool:
         with Session() as session:
             client = client_repository.get_by_id(client_id, session)
             if not client:
-                return False
+                return
 
             # Business rule: cannot delete client with associated contracts
             contracts = contract_repository.find_by(session, client_id=client_id)

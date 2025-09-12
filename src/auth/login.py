@@ -7,7 +7,7 @@ from src.auth.jwt.generate_token import generate_token
 from src.auth.jwt.token_storage import store_token
 from src.exceptions import InvalidUsernameError, InvalidPasswordError
 from src.auth.hashing import verify_password
-from views.views import MainView
+from src.views.views import MainView
 from src.sentry.observability import log_authentication_event, log_error
 
 view = MainView()
@@ -28,11 +28,13 @@ def login(username: str, password: str | None = None) -> tuple[str, str, datetim
         user = session.query(User).filter(User.username==username).one_or_none()
         if not user:
             log_authentication_event("login_failed", success=False, context={"reason": "unknown_username", "username": username})
-            raise InvalidUsernameError("Unknown username.")
+            view.wrong_message("Unknown username.")
+            return
         
         if not verify_password(password, user.password_hash):
             log_authentication_event("login_failed", success=False, context={"reason": "wrong_password", "user_id": user.id})
-            raise InvalidPasswordError("Wrong password.")
+            view.wrong_message("Wrong password.")
+            return
             
         access_token, raw_refresh, refresh_exp, refresh_hash = generate_token(user.id, user.role_id)
         user.refresh_token_hash = refresh_hash.decode("utf-8")

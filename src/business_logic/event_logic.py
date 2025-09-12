@@ -1,10 +1,11 @@
 from src.data_access.repository import event_repository, contract_repository
 from src.data_access.config import Session
 from src.crm.models import Event, Contract
-from src.auth.permissions import has_permission_for_event
+from src.auth.permissions import has_permission_for_event, has_permission, require_permission, login_required
 from typing import List, Optional
 
 class EventLogic:
+    @require_permission("event:create")
     def create_event(self, access_token: str, event_data: dict) -> Event:
         with Session() as session:
             # Business rule: check if contract exists and is signed
@@ -19,6 +20,7 @@ class EventLogic:
             session.refresh(event)
             return event
 
+    @login_required
     def get_events(self, access_token: str, user_id: int, filtered: bool) -> List[Event]:
         with Session() as session:
             # This logic needs to be more sophisticated based on permissions
@@ -27,18 +29,17 @@ class EventLogic:
             else:
                 return event_repository.get_all(session)
 
-    def get_event_by_id(self, event_id: int) -> Optional[Event]:
+    @require_permission("event:view")
+    def get_event_by_id(self, access_token: str, event_id: int) -> Optional[Event]:
         with Session() as session:
             return event_repository.get_by_id(event_id, session)
 
+    @require_permission("event:update")
     def update_event(self, access_token: str, user_id: int, event_id: int, event_data: dict) -> Optional[Event]:
         with Session() as session:
             event = event_repository.get_by_id(event_id, session)
             if not event:
-                return None
-
-            if not has_permission_for_event(access_token, "update", event, user_id):
-                raise PermissionError("You don't have permission to update this event.")
+                return
 
             updated_event = event_repository.update(event_id, event_data, session)
             session.commit()
@@ -46,11 +47,12 @@ class EventLogic:
                 session.refresh(updated_event)
             return updated_event
             
+    @require_permission("event:update")
     def assign_support_to_event(self, access_token: str, event_id: int, support_contact_id: int) -> Optional[Event]:
         with Session() as session:
             event = event_repository.get_by_id(event_id, session)
             if not event:
-                return None
+                return
 
             # Assuming only management can assign support, permission check should be here or in controller
             
@@ -61,11 +63,12 @@ class EventLogic:
             return updated_event
 
 
+    @require_permission("event:delete")
     def delete_event(self, access_token: str, event_id: int) -> bool:
         with Session() as session:
             event = event_repository.get_by_id(event_id, session)
             if not event:
-                return False
+                return
 
             deleted = event_repository.delete(event_id, session)
             if deleted:

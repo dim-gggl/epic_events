@@ -527,7 +527,6 @@ class MainView:
                 "center",
                 "bold gold1",
                 title="AUTHENTICATION",
-                subtitle=None, 
                 title_style="bold gold1",
             ),
             end="\n\n"
@@ -597,9 +596,7 @@ class MainView:
     @clear_console
     def display_client_detail(self, access_token, client):
         self.display_details(
-            access_token, 
-            client.id, 
-            Client, 
+            client, 
             fields=[
                 "id", "full_name", "email", 
                 "phone", "company_id", 
@@ -646,7 +643,10 @@ class MainView:
 
     @clear_console
     def display_event_detail(self, access_token, event_id):
-        self.display_details(access_token, event_id, Event)
+        event = event_logic.get_event_by_id(access_token, event_id)
+        self.display_details(access_token, event, fields=[
+            "id", "title", "start_date", "end_date", "participant_count", "support_contact_id", s
+        ])
         
     @clear_console
     def display_details(self, obj, fields=None):
@@ -666,6 +666,8 @@ class MainView:
         if not fields:
             for key, value in obj.__dict__.items():
                 if not key.startswith("_"):
+                    if isinstance(value, datetime):
+                        value = value.strftime("%d/%m/%Y")  
                     table.add_row(
                         Text(key.replace("_", " ").capitalize(), 
                         style=logo_style), 
@@ -676,10 +678,14 @@ class MainView:
         else:
             for field in fields:
                 table.add_row(
-                    Text(field.replace("_", " ").capitalize(), 
-                    style=logo_style), 
-                    Text(str(getattr(obj, field)), 
-                    style="grey100")
+                    Text(
+                        field.replace("_", " ").capitalize(), 
+                        style=logo_style
+                    ), 
+                    Text(
+                        str(getattr(obj, field)), 
+                        style="grey100"
+                    )
                 )
             print(table, justify="center")
             
@@ -689,46 +695,45 @@ class MainView:
         print(banner(f"COMPANIES ({len(companies)})", white, "center", "bold gold1"))
         table = Table(box=box.MINIMAL, show_header=True)
         table.add_column(header=Text("ID", style=epic_style), justify="center")
-        table.add_column(header=Text("Name", style=epic_style), justify="center")
-        table.add_column(header=Text("Created", style=epic_style), justify="center")
+        table.add_column(header=Text("Name", style=epic_style), justify="left")
         for company in companies:
             table.add_row(
-                Text(str(company.id), style="grey100"), 
-                Text(company.name, style="grey100"), 
-                Text(company.created_at.strftime("%d/%m/%Y"), style="grey100")
+                Text(str(company.id), style="bold gold1"), 
+                Text(company.name, style="bold grey100")
             )
         print(table, justify="center")
 
     @clear_console
     def display_company(self, company):
         """Display company details."""
-        table = Table(
-            title=Text(company.name.upper(), style=logo_style), 
-            box=box.ROUNDED, 
-            show_header=False
-        )
-        table.add_column()
-        table.add_column()
+        self.display_details()
+        # table = Table(
+        #     title=Text(company.name.upper(), style=logo_style), 
+        #     box=box.ROUNDED, 
+        #     show_header=False
+        # )
+        # table.add_column()
+        # table.add_column()
         
-        table.add_row(
-            Text("ID", style=logo_style), 
-            Text(str(company.id), style="grey100")
-        )
-        table.add_row(
-            Text("Name", style=logo_style), 
-            Text(company.name, style="grey100")
-        )
-        table.add_row(
-            Text("Created", style=logo_style), 
-            Text(company.created_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
-        )
-        table.add_row(
-            Text("Updated", style=logo_style), 
-            Text(company.updated_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
-        )
-        table.add_row(
-            Text("Clients", style=logo_style), 
-            Text(str(len(company.clients)), style="grey100")
-        )
+        # table.add_row(
+        #     Text("ID", style=logo_style), 
+        #     Text(str(company.id), style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Name", style=logo_style), 
+        #     Text(company.name, style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Created", style=logo_style), 
+        #     Text(company.created_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Updated", style=logo_style), 
+        #     Text(company.updated_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Clients", style=logo_style), 
+        #     Text(str(len(company.clients)), style="grey100")
+        # )
         
-        print(table, justify="center")
+        # print(table, justify="center")

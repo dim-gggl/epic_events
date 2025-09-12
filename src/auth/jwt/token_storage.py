@@ -69,7 +69,12 @@ def get_stored_token() -> Optional[Dict[str, Any]]:
     
     try:
         with open(token_file_path, 'r') as f:
-            token_data = json.load(f)
+            content = f.read().strip()
+            if not content:
+                # File is empty, treat as no token
+                cleanup_token_file()
+                return None
+            token_data = json.loads(content)
         
         # Convert refresh_expiry back to datetime
         if 'refresh_expiry' in token_data:
@@ -82,7 +87,7 @@ def get_stored_token() -> Optional[Dict[str, Any]]:
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         view.wrong_message(f"Invalid token file format. \n{e}")
         cleanup_token_file()
-        raise
+        return None
 
     except Exception as e:
         view.wrong_message(f"Failed to read authentication tokens: {str(e)}")
@@ -120,8 +125,7 @@ def cleanup_token_file() -> None:
     """Remove the temporary token file."""
     token_file_path = _get_auth_location()
     if os.path.exists(token_file_path):
-        with open(token_file_path, "w") as f:
-            f.write("")
+        os.remove(token_file_path)
     else:
         view.display_message("No token stored in the file")
 

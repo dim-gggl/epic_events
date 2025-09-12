@@ -1,4 +1,5 @@
-import rich_click as click
+import click
+import rich_click as rclick
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -17,6 +18,15 @@ from src.views.views import clear_console
 LOGO_PATH = Path("src/views/logo.txt")
 console = Console()
 print = console.print
+
+
+# Authentication helper
+def get_required_token() -> str | None:
+    token = get_access_token()
+    if not token:
+        print("[bold red]Please login first.[/bold red] Use: [bold]python epic_events.py login[/bold]")
+        return None
+    return token
 
 # Help formatting functions from the old CLI
 @clear_console
@@ -78,8 +88,29 @@ def render_help_with_logo(ctx: click.Context) -> None:
     grid.add_column(no_wrap=True, width=max_logo_width + 2)
     grid.add_column(ratio=1)
     left = Padding(logo, (0, 1))
-    with click.Context(ctx.command, info_name=ctx.info_name, parent=ctx.parent) as help_ctx:
-        help_text = ctx.command.get_help(help_ctx)
+    
+    # Create help text manually to avoid rich-click conflicts
+    help_lines = []
+    help_lines.append(f"Usage: {ctx.command.name} [OPTIONS]")
+    if ctx.command.help:
+        help_lines.append("")
+        help_lines.append(ctx.command.help)
+    
+    if hasattr(ctx.command, 'commands') and ctx.command.commands:
+        help_lines.append("")
+        help_lines.append("Commands:")
+        for name, cmd in ctx.command.commands.items():
+            help_lines.append(f"  {name:<15} {cmd.short_help or cmd.help or ''}")
+    
+    if hasattr(ctx.command, 'params') and ctx.command.params:
+        help_lines.append("")
+        help_lines.append("Options:")
+        for param in ctx.command.params:
+            if isinstance(param, click.Option):
+                opts = ', '.join(param.opts)
+                help_lines.append(f"  {opts:<20} {param.help or ''}")
+    
+    help_text = '\n'.join(help_lines)
     help_content = format_help_with_styles(help_text) if help_text else Text("No help available")
     right = Panel(help_content, box=box.ROUNDED, border_style=epic_style, padding=(1, 2), title="HELP", title_align="left")
     grid.add_row(left, right)
@@ -105,33 +136,33 @@ def attach_help(group: click.Group) -> None:
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-def cli(ctx: click.Context):
+def command(ctx: click.Context):
     """Epic Events CRM"""
     if ctx.invoked_subcommand is None:
         render_help_with_logo(ctx)
         
-attach_help(cli)
+attach_help(command)
 
 # Authentication commands
-@cli.command()
+@command.command()
 @click.option("-u", "--username", help="Login ID", required=False)
 @click.option("-p", "--password", help="Password", required=False)
 def login(username, password):
     """Login to the system."""
     main_controller.login(username, password)
 
-@cli.command()
+@command.command()
 def logout():
     """Logout from the system."""
     main_controller.logout()
 
 # Database commands
-@cli.command()
+@command.command()
 def db_create():
     """Create the database."""
     init_db()
     
-@cli.command()
+@command.command()
 @click.option("-u", "--username", help="Login ID", required=False)
 @click.option("-n", "--full-name", help="Full name", required=False)
 @click.option("-e", "--email", help="Email", required=False)
@@ -140,7 +171,7 @@ def manager_create(username, full_name, email):
     init_manager(username, full_name, email)
 
 # User commands
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def user(ctx: click.Context):
     """User management commands."""
@@ -150,72 +181,92 @@ attach_help(user)
 
 @user.command("create")
 def user_create():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.create_user(token)
 
 @user.command("list")
 def user_list():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.list_users(token)
 
 @user.command("view")
 @click.argument("user_id", type=int)
 def user_view(user_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.view_user(token, user_id)
 
 @user.command("update")
 @click.argument("user_id", type=int)
 def user_update(user_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.update_user(token, user_id)
 
 @user.command("delete")
 @click.argument("user_id", type=int)
 def user_delete(user_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.delete_user(token, user_id)
 
 # Client commands
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def client(ctx: click.Context):
     """Client management commands."""
-    if ctx.invoked_subcommand is None:
+    if not ctx.invoked_subcommand:
         render_help_with_logo(ctx)
 attach_help(client)
 
 @client.command("create")
 def client_create():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.create_client(token)
 
 @client.command("list")
 @click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
 def client_list(only_mine):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.list_clients(token, only_mine)
 
 @client.command("view")
 @click.argument("client_id", type=int)
 def client_view(client_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.view_client(token, client_id)
 
 @client.command("update")
 @click.argument("client_id", type=int)
 def client_update(client_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.update_client(token, client_id)
 
 @client.command("delete")
 @click.argument("client_id", type=int)
 def client_delete(client_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.delete_client(token, client_id)
 
 # Contract commands
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def contract(ctx: click.Context):
     """Contract management commands."""
@@ -225,35 +276,45 @@ attach_help(contract)
 
 @contract.command("create")
 def contract_create():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.create_contract(token)
 
 @contract.command("list")
 @click.option("--only-mine", is_flag=True, help="Show only your contracts", default=False)
 def contract_list(only_mine):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.list_contracts(token, only_mine)
 
 @contract.command("view")
 @click.argument("contract_id", type=int)
 def contract_view(contract_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.view_contract(token, contract_id)
 
 @contract.command("update")
 @click.argument("contract_id", type=int)
 def contract_update(contract_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.update_contract(token, contract_id)
 
 @contract.command("delete")
 @click.argument("contract_id", type=int)
 def contract_delete(contract_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.delete_contract(token, contract_id)
 
 # Event commands
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def event(ctx: click.Context):
     """Event management commands."""
@@ -263,42 +324,54 @@ attach_help(event)
 
 @event.command("create")
 def event_create():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.create_event(token)
 
 @event.command("list")
 @click.option("--only-mine", is_flag=True, help="Show only your events", default=False)
 def event_list(only_mine):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.list_events(token, only_mine)
 
 @event.command("view")
 @click.argument("event_id", type=int)
 def event_view(event_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.view_event(token, event_id)
 
 @event.command("update")
 @click.argument("event_id", type=int)
 def event_update(event_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.update_event(token, event_id)
     
 @event.command("assign_support")
 @click.argument("event_id", type=int)
 @click.argument("support_id", type=int)
 def assign_support(event_id, support_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.assign_support_to_event(token, event_id, support_id)
 
 @event.command("delete")
 @click.argument("event_id", type=int)
 def event_delete(event_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.delete_event(token, event_id)
 
 # Company commands
-@cli.group(invoke_without_command=True)
+@command.group(invoke_without_command=True)
 @click.pass_context
 def company(ctx: click.Context):
     """Company management commands."""
@@ -308,30 +381,40 @@ attach_help(company)
 
 @company.command("create")
 def company_create():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.create_company(token)
 
 @company.command("list")
 def company_list():
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.list_companies(token)
 
 @company.command("view")
 @click.argument("company_id", type=int)
 def company_view(company_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.view_company(token, company_id)
 
 @company.command("update")
 @click.argument("company_id", type=int)
 def company_update(company_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.update_company(token, company_id)
 
 @company.command("delete")
 @click.argument("company_id", type=int)
 def company_delete(company_id):
-    token = get_access_token()
+    token = get_required_token()
+    if not token:
+        return
     main_controller.delete_company(token, company_id)
 
-command = cli
+cli = command

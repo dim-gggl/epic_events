@@ -164,7 +164,7 @@ class MainController:
     
     def view_user(self, access_token: str, user_id: int):
         try:
-            user = user_logic.get_user_by_id(user_id)
+            user = user_logic.get_user_by_id(access_token, user_id)
             if user:
                 view.display_user(user)
             else:
@@ -221,16 +221,20 @@ class MainController:
             user_id = user_info['user_id']
             clients = client_logic.get_clients(access_token, user_id, filtered)
             view.display_list_clients(clients)
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
     
     def view_client(self, access_token: str, client_id: int):
         try:
-            client = client_logic.get_client_by_id(client_id)
+            client = client_logic.get_client_by_id(access_token, client_id)
             if client:
                 view.display_client_detail(access_token, client)
             else:
                 view.wrong_message("Client not found.")
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
@@ -280,16 +284,20 @@ class MainController:
             user_id = user_info['user_id']
             contracts = contract_logic.get_contracts(access_token, user_id, filtered)
             view.display_contracts(contracts)
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
     def view_contract(self, access_token: str, contract_id: int):
         try:
-            contract = contract_logic.get_contract_by_id(contract_id)
+            contract = contract_logic.get_contract_by_id(access_token, contract_id)
             if contract:
                 view.display_contract(contract)
             else:
                 view.wrong_message("Contract not found.")
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
@@ -336,16 +344,20 @@ class MainController:
             user_id = user_info['user_id']
             events = event_logic.get_events(access_token, user_id, filtered)
             view.display_events(events)
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
     def view_event(self, access_token: str, event_id: int):
         try:
-            event = event_logic.get_event_by_id(event_id)
+            event = event_logic.get_event_by_id(access_token, event_id)
             if event:
                 view.display_event(event)
             else:
                 view.wrong_message("Event not found.")
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
     
@@ -407,11 +419,13 @@ class MainController:
     
     def view_company(self, access_token: str, company_id: int):
         try:
-            company = company_logic.get_company_by_id(company_id)
+            company = company_logic.get_company_by_id(access_token, company_id)
             if company:
                 view.display_company(company)
             else:
                 view.wrong_message("Company not found.")
+        except (PermissionError, ValueError) as e:
+            view.wrong_message(str(e))
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 

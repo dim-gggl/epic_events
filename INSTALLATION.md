@@ -11,7 +11,7 @@ If using `uv`:
 uv venv && source .venv/bin/activate
 ```
 
-Using `virtualenv`:
+Using `venv`:
 ```bash
 python3 -m venv .venv && source .venv/bin/activate      # on Linux/macOS
 python3 -m venv .venv && .venv\Scripts\activate         # on Windows

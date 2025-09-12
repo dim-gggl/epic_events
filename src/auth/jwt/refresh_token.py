@@ -10,7 +10,7 @@ from .config import (
 )
 from src.data_access.config import Session
 from src.crm.models import User
-from views.views import MainView
+from src.views.views import MainView
 from src.auth.jwt.token_storage import update_access_token
 from src.exceptions import InvalidTokenError, ExpiredTokenError
 
@@ -44,12 +44,8 @@ def refresh_access_token(user_id: int,
         if not user:
             raise InvalidTokenError("Invalid user ID")
             
-        if not user.refresh_token_hash or not user.refresh_token_expiry:
+        if not user.refresh_token_hash:
             raise InvalidTokenError("No refresh token saved for this user")
-
-        # Check if the refresh token has expired
-        if datetime.now(timezone.utc) > user.refresh_token_expiry:
-            raise ExpiredTokenError("Refresh token has expired")
 
         # Check if the provided refresh token matches the stored hash
         stored_hash_bytes = user.refresh_token_hash.encode('utf-8')
@@ -78,7 +74,6 @@ def refresh_access_token(user_id: int,
 
         # Update the database with new refresh token
         user.refresh_token_hash = new_refresh_hash.decode('utf-8')
-        user.refresh_token_expiry = new_refresh_exp
         session.commit()
         
         # Update the stored access token in temporary file

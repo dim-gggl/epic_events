@@ -4,48 +4,53 @@ from src.crm.models import Company
 from src.auth.permissions import has_permission
 from typing import List, Optional
 from sqlalchemy.orm import joinedload
+from src.auth.permissions import require_permission, login_required
+
 
 class CompanyLogic:
+    @require_permission("company:create")
     def create_company(self, access_token: str, company_data: dict) -> Company:
         """
         Create a new company.
         Only commercial and management roles can create companies.
         """
-        if not has_permission(access_token, "company:create"):
-            raise PermissionError("You don't have permission to create companies.")
-        
         with Session() as session:
             company = company_repository.create(company_data, session)
             session.commit()
             session.refresh(company)
             return company
 
+
+    @login_required
     def get_companies(self, access_token: str) -> List[Company]:
         """
         Get all companies.
         Only commercial and management roles can list companies.
         """
-        if not has_permission(access_token, "company:list"):
-            raise PermissionError("You don't have permission to list companies.")
-        
         with Session() as session:
             return company_repository.get_all(session)
 
-    def get_company_by_id(self, company_id: int) -> Optional[Company]:
+    @require_permission("company:view")
+    def get_company_by_id(self, access_token: str, company_id: int) -> Optional[Company]:
         """
         Get a company by its ID.
+        Requires permission: company:view
         """
         with Session() as session:
-            return session.query(Company).options(joinedload(Company.clients)).filter(Company.id == company_id).first()
+            return (
+                session
+                .query(Company)
+                .options(joinedload(Company.clients))
+                .filter(Company.id == company_id)
+                .first()
+            )
 
+    @require_permission("company:update")
     def update_company(self, access_token: str, company_id: int, company_data: dict) -> Optional[Company]:
         """
         Update a company.
         Only management role can update companies.
         """
-        if not has_permission(access_token, "company:update"):
-            raise PermissionError("You don't have permission to update companies.")
-        
         with Session() as session:
             company = company_repository.get_by_id(company_id, session)
             if not company:
@@ -57,21 +62,18 @@ class CompanyLogic:
                 session.refresh(updated_company)
             return updated_company
 
+    @require_permission("company:delete")
     def delete_company(self, access_token: str, company_id: int) -> bool:
         """
         Delete a company.
         Only management role can delete companies.
         Business rule: cannot delete company with associated clients.
         """
-        if not has_permission(access_token, "company:delete"):
-            raise PermissionError("You don't have permission to delete companies.")
-        
         with Session() as session:
             company = company_repository.get_by_id(company_id, session)
             if not company:
-                return False
+                return
 
-            # Business rule: cannot delete company with associated clients
             if company.clients:
                 raise ValueError("Cannot delete a company with associated clients.")
 

@@ -1,5 +1,5 @@
 
-from src.cli.main import command as cli
+from src.cli.main import cli
 from src.sentry.observability import init_sentry
 
 

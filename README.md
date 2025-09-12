@@ -16,7 +16,7 @@ To learn more about the installation, it's recommended to read the **[INSTALLATI
 
 If you try this:
 ```bash
-python epic_events.py --help
+python epic_events.py help
 ```
 This is what you should see:
 ![](media/help_menu.svg)

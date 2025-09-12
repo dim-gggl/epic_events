@@ -77,6 +77,14 @@ def is_valid_role_id(role_id: int) -> bool:
 
 def is_valid_phone(phone: str) -> bool:
     """Validate phone number using phonenumbers library."""
+    if phone.startswith("00"):
+        phone = "+" + phone[2:]
+    elif phone.startswith("0"):
+        phone = "+33" + phone[1:]
+    elif phone.startswith("+"):
+        pass
+    else:
+        phone = "+" + phone
     try:
         return phonenumbers.is_valid_number(phonenumbers.parse(phone))
     except Exception as e:
