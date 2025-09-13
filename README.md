@@ -62,7 +62,7 @@ epic-events client list
 
 Here is what should appear:
 
-![](media/epic-ev-clients.svg)
+![](src/media/epic-ev-clients.svg)
 
 And from here, we could decide to see the details from the client with the ID #12:
 
@@ -72,4 +72,4 @@ epic-events client view -i 12
 
 And here's what the oupput should look like :
 
-![](./media/epic-ev-client.svg)
+![](src/media/epic-ev-client.svg)
