@@ -2,7 +2,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from typing import Type, TypeVar, Generic, List, Optional, Any
 
-from src.data_access.config import Session as AppSession
 from src.crm.models import Base
 
 T = TypeVar('T', bound=Base)

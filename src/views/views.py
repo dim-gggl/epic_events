@@ -1,22 +1,18 @@
 import getpass
-import sys
 
 from functools import wraps
 from typing import Callable, Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.columns import Columns
 from rich.text import Text
 from rich.style import Style
 from datetime import datetime
 from rich.align import Align
 from rich import box
-from sqlalchemy import select
 
-from src.data_access.config import Session
 from src.views.config import epic_style, logo_style, white
-from src.crm.models import Client, Event
+
 
 
 #########################################################
@@ -39,36 +35,6 @@ def clear_console(func):
 def centered(content: Text | str, style: Style=None) -> Align:
     return Align.center(content, style=style)
 
-def center_content(style: str = "bold grey100") -> Callable:
-    """
-    Decorator that centers input prompts by left-padding the prompt string
-    based on the current console width. Works with methods that call `self.input(...)`.
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(self, *args: Any, **kwargs: Any):
-            original_input = getattr(self, "input")
-
-            def centered_input(prompt: str = "", *a: Any, **k: Any):
-                # Style the prompt using Rich markup
-                styled = f"[{style}]{prompt}[/]"
-                # Compute display cell length with Rich (handles ANSI/emoji widths)
-                text_obj = Text.from_markup(styled)
-                width = getattr(getattr(self, "console", None), "width", 80)
-                pad = max(0, (width - text_obj.cell_len) // 2)
-                padded = f"{' ' * pad}{styled}"
-                return original_input(padded, *a, **k)
-
-            # Temporarily override `self.input`
-            setattr(self, "input", centered_input)
-            try:
-                return func(self, *args, **kwargs)
-            finally:
-                # Always restore original input
-                setattr(self, "input", original_input)
-        return wrapper
-    return decorator
-
 PRESS_ENTER_CENTERED = centered("Press ENTER", "orange_red1")
 
 def banner(content, 
@@ -86,16 +52,15 @@ def banner(content,
     A function to display a header in a banner style layout.
 
     Args: 
-        content: The body of the text we want to display.
-        style: The style of the text we want to display.
-        justify: The justification of the text we want to display.
-        border_style: The style of the border we want to display.
-        title / subtitle: These headers are actually displayed on the level
+        content: str.
+        style: str of Style object. 
+        justify: str.
+        border_style: str or Style object. 
+        title / subtitle: str. These headers are actually displayed on the level
             of the frame/border. It's more like a label legend or information 
-            label.
-        content: The body of the text we want to display.
-        title/subtitle/content/border-style: These are litterally what
-            they're called after.
+            label. (title appears on the top border and subtitle on the bottom border)
+        content2: str. Optional. If provided, displayed below the content, and styled 
+        with style2.
     """
     if content2:
         text = Text()
@@ -250,10 +215,6 @@ class MainView:
     @clear_console
     def get_client_id(self) -> str:
         return self.input("Client ID: ")
-
-    @clear_console
-    def get_contract_id(self) -> str:
-        return self.input("Contract ID: ")
     
     @clear_console
     def get_notes(self) -> str:
@@ -299,11 +260,15 @@ class MainView:
             table.add_row(
                 Text(
                     str(event.id), 
-                    style="bold gold1"), 
-                    Text(event.title, style="bold grey100"), 
-                    Text(event.start_date.strftime("%d/%m/%Y"), 
-                    style="grey100"), 
-                    Text(str(event.support_contact_id or "Not assigned"), 
+                    style="bold gold1"
+                ), 
+                Text(event.title, style="bold grey100"), 
+                Text(
+                    event.start_date.strftime("%d/%m/%Y"), 
+                    style="grey100"
+                ), 
+                Text(
+                    str(event.support_contact_id or "Not assigned"), 
                     style="grey100"
                 )
             )
@@ -312,42 +277,69 @@ class MainView:
     @clear_console
     def display_event(self, event):
         """Display event details."""
-        table = Table(title=Text(event.title.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
-        table.add_column()
-        table.add_column()
+        self.display_details(event, fields=[
+            "id", "title", "contract_id", 
+            "support_contact_id", "start_date",
+            "end_date", "participant_count",
+            "full_address", "notes"
+        ])
+        # table = Table(title=Text(event.title.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
+        # table.add_column()
+        # table.add_column()
         
-        table.add_row(Text("ID", style=logo_style), Text(str(event.id), style="grey100"))
-        table.add_row(Text("Title", style=logo_style), Text(event.title, style="grey100"))
-        table.add_row(Text("Contract ID", style=logo_style), Text(str(event.contract_id), style="grey100"))
-        table.add_row(
-            Text("Support ID", style=logo_style), 
-            Text(str(event.support_contact_id or "Not assigned"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Start Date", style=logo_style), 
-            Text(event.start_date.strftime("%d/%m/%Y"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("End Date", style=logo_style), 
-            Text(event.end_date.strftime("%d/%m/%Y"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Participants", 
-            style=logo_style), 
-            Text(str(event.participant_count), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Address", style=logo_style), 
-            Text(event.full_address or "Not specified", 
-            style="grey100")
-        )
-        table.add_row(Text("Notes", style=logo_style), Text(event.notes or "No notes", style="grey100"))
+        # table.add_row(Text("ID", style=logo_style), Text(str(event.id), style="grey100"))
+        # table.add_row(Text("Title", style=logo_style), Text(event.title, style="grey100"))
+        # table.add_row(Text(
+        #     "Contract ID", 
+        #     style=logo_style
+        #     ), 
+        #     Text(str(event.contract_id), style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Support ID", style=logo_style), 
+        #     Text(
+        #         str(event.support_contact_id or "Not assigned"), 
+        #         style="grey100"
+        #     )
+        # )
+        # table.add_row(
+        #     Text("Start Date", style=logo_style), 
+        #     Text(
+        #         event.start_date.strftime("%d/%m/%Y"), 
+        #         style="grey100"
+        #     )
+        # )
+        # table.add_row(
+        #     Text("End Date", style=logo_style), 
+        #     Text(
+        #         event.end_date.strftime("%d/%m/%Y"), 
+        #         style="grey100"
+        #     )
+        # )
+        # table.add_row(
+        #     Text(
+        #         "Participants", 
+        #         style=logo_style
+        #     ), 
+        #     Text(
+        #         str(event.participant_count), 
+        #         style="grey100"
+        #     )
+        # )
+        # table.add_row(
+        #     Text("Address", style=logo_style), 
+        #     Text(
+        #         event.full_address or "Not specified", 
+        #         style="grey100"
+        #     )
+        # )
+        # table.add_row(
+        #     Text("Notes", style=logo_style), 
+        #     Text(event.notes or "No notes", style="grey100")
+        # )
+
         
-        print(table, justify="center")
+        # print(table, justify="center")
 
     @clear_console
     def display_contracts(self, contracts):
@@ -463,56 +455,62 @@ class MainView:
     @clear_console
     def display_user(self, user):
         """Display user details."""
-        table = Table(
-            title=Text(user.username.upper(), 
-            style=logo_style), 
-            box=box.ROUNDED, 
-            show_header=False
-        )
-        table.add_column()
-        table.add_column()
+        self.display_details(user, fields=[
+            "id", "username", "full_name",
+            "email", "role_id", "is_active",
+            "created_at", "updated_at",
+            "last_login"
+        ])
+        # table = Table(
+        #     title=Text(user.username.upper(), 
+        #     style=logo_style), 
+        #     box=box.ROUNDED, 
+        #     show_header=False
+        # )
+        # table.add_column()
+        # table.add_column()
         
-        table.add_row(Text("ID", style=logo_style), Text(str(user.id), style="grey100"))
-        table.add_row(Text("Username", style=logo_style), Text(user.username, style="grey100"))
-        table.add_row(Text("Full Name", style=logo_style), Text(user.full_name, style="grey100"))
-        table.add_row(Text("Email", style=logo_style), Text(user.email, style="grey100"))
+        # table.add_row(Text("ID", style=logo_style), Text(str(user.id), style="grey100"))
+        # table.add_row(Text("Username", style=logo_style), Text(user.username, style="grey100"))
+        # table.add_row(Text("Full Name", style=logo_style), Text(user.full_name, style="grey100"))
+        # table.add_row(Text("Email", style=logo_style), Text(user.email, style="grey100"))
         
-        # Show role name instead of ID
-        role_names = {1: 'Management', 2: 'Commercial', 3: 'Support'}
-        role_name = role_names.get(user.role_id, f'Role {user.role_id}')
-        table.add_row(Text("Role", style=logo_style), Text(f"{role_name} ({user.role_id})", style="grey100"))
+        # # Show role name instead of ID
+        # role_names = {1: 'Management', 2: 'Commercial', 3: 'Support'}
+        # role_name = role_names.get(user.role_id, f'Role {user.role_id}')
+        # table.add_row(Text("Role", style=logo_style), Text(f"{role_name} ({user.role_id})", style="grey100"))
         
-        table.add_row(
-            Text("Active", style=logo_style), 
-            Text("Yes" if user.is_active else "No", 
-            style="grey100"))
-        table.add_row(
-            Text("Created At", style=logo_style), 
-            Text(user.created_at.strftime("%d/%m/%Y %H:%M"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Updated At", style=logo_style), 
-            Text(user.updated_at.strftime("%d/%m/%Y %H:%M"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Events", style=logo_style), 
-            Text(str(len(user.supported_events)), 
-            style="grey100")
-        )
+        # table.add_row(
+        #     Text("Active", style=logo_style), 
+        #     Text("Yes" if user.is_active else "No", 
+        #     style="grey100"))
+        # table.add_row(
+        #     Text("Created At", style=logo_style), 
+        #     Text(user.created_at.strftime("%d/%m/%Y %H:%M"), 
+        #     style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Updated At", style=logo_style), 
+        #     Text(user.updated_at.strftime("%d/%m/%Y %H:%M"), 
+        #     style="grey100")
+        # )
+        # table.add_row(
+        #     Text("Events", style=logo_style), 
+        #     Text(str(len(user.supported_events)), 
+        #     style="grey100")
+        # )
 
-        if user.last_login:
-            table.add_row(
-                Text("Last Login", 
-                style=logo_style), 
-                Text(user.last_login.strftime("%d/%m/%Y %H:%M"), 
-                style="grey100")
-            )
-        else:
-            table.add_row(Text("Last Login", style=logo_style), Text("Never", style="grey100"))
+        # if user.last_login:
+        #     table.add_row(
+        #         Text("Last Login", 
+        #         style=logo_style), 
+        #         Text(user.last_login.strftime("%d/%m/%Y %H:%M"), 
+        #         style="grey100")
+        #     )
+        # else:
+        #     table.add_row(Text("Last Login", style=logo_style), Text("Never", style="grey100"))
             
-        print(table, justify="center")
+        # print(table, justify="center")
 
 
     @clear_console
@@ -533,7 +531,7 @@ class MainView:
         )
         
         # Show token expiration info only
-        exp_text = refresh_exp.strftime("%d/%m/%Y") if hasattr(refresh_exp, "strftime") else qlstr(refresh_exp).split(" ")[0]
+        exp_text = refresh_exp.strftime("%d/%m/%Y") if hasattr(refresh_exp, "strftime") else str(refresh_exp).split(" ")[0]
         print(
             Panel.fit(
                 f"Tokens stored securely until {exp_text}", 
@@ -548,7 +546,7 @@ class MainView:
 
     @clear_console
     def display_logo(self, press_enter: bool = True, centered: bool = True):
-        with open("views/logo.txt", "r") as file:
+        with open("src/views/logo.txt", "r") as file:
             logo_text = file.read()
         logo = Text(logo_text)
         logo.stylize(epic_style, 0, 145)
@@ -640,13 +638,6 @@ class MainView:
                 style="grey100")
             )
         print(table, justify="center")
-
-    @clear_console
-    def display_event_detail(self, access_token, event_id):
-        event = event_logic.get_event_by_id(access_token, event_id)
-        self.display_details(access_token, event, fields=[
-            "id", "title", "start_date", "end_date", "participant_count", "support_contact_id", s
-        ])
         
     @clear_console
     def display_details(self, obj, fields=None):
@@ -669,21 +660,34 @@ class MainView:
                     if isinstance(value, datetime):
                         value = value.strftime("%d/%m/%Y")  
                     table.add_row(
-                        Text(key.replace("_", " ").capitalize(), 
-                        style=logo_style), 
-                        Text(str(value), 
-                        style="grey100")
+                        Text(
+                            key.replace("_", " ").capitalize(), 
+                            style=logo_style
+                        ), 
+                        Text(
+                            str(value), 
+                            style="grey100"
+                        )
                     )
             print(table, justify="center")
         else:
             for field in fields:
+                if any(datefield in field for datefield in [
+                    "created_at", "updated_at", 
+                    "last_login", "first_contact_date", 
+                    "last_contact_date", "start_date", 
+                    "end_date"
+                ]):
+                    value = getattr(obj, field).strftime("%d/%m/%Y")
+                else:
+                    value = str(getattr(obj, field))
                 table.add_row(
                     Text(
                         field.replace("_", " ").capitalize(), 
                         style=logo_style
                     ), 
                     Text(
-                        str(getattr(obj, field)), 
+                        value, 
                         style="grey100"
                     )
                 )
@@ -706,34 +710,4 @@ class MainView:
     @clear_console
     def display_company(self, company):
         """Display company details."""
-        self.display_details()
-        # table = Table(
-        #     title=Text(company.name.upper(), style=logo_style), 
-        #     box=box.ROUNDED, 
-        #     show_header=False
-        # )
-        # table.add_column()
-        # table.add_column()
-        
-        # table.add_row(
-        #     Text("ID", style=logo_style), 
-        #     Text(str(company.id), style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Name", style=logo_style), 
-        #     Text(company.name, style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Created", style=logo_style), 
-        #     Text(company.created_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Updated", style=logo_style), 
-        #     Text(company.updated_at.strftime("%d/%m/%Y %H:%M"), style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Clients", style=logo_style), 
-        #     Text(str(len(company.clients)), style="grey100")
-        # )
-        
-        # print(table, justify="center")
+        self.display_details(company, fields=["id", "name", "created_at"])

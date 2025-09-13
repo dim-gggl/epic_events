@@ -1,9 +1,7 @@
 import os
 import tempfile
 import json
-import atexit
 from datetime import datetime
-from pathlib import Path
 from typing import Optional, Dict, Any
 
 from src.views.views import MainView
@@ -20,7 +18,6 @@ def _get_auth_location() -> str:
         # Use a fixed temporary file path that persists across process invocations
         temp_dir = tempfile.gettempdir()
         _auth_location = os.path.join(temp_dir, 'epic_events_session.jwt')
-        # Don't register cleanup function - let logout command handle cleanup
     return _auth_location
 
 
@@ -128,20 +125,6 @@ def cleanup_token_file() -> None:
         os.remove(token_file_path)
     else:
         view.display_message("No token stored in the file")
-
-
-def is_token_expired() -> bool:
-    """
-    Check if the stored refresh token has expired.
-    
-    Returns:
-        True if token is expired or not found, False otherwise
-    """
-    token_data = get_stored_token()
-    if not token_data or 'refresh_expiry' not in token_data:
-        return True
-    
-    return datetime.utcnow() >= token_data['refresh_expiry']
 
 
 def update_access_token(new_access_token: str) -> None:

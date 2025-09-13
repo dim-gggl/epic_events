@@ -103,7 +103,7 @@ def _before_send_filter(event, hint):
     sensitive_keys = ["password", "token", "secret", "key", "dsn"]
     for key in list(event.__dict__().keys()):
         if any(sensitive in key.lower() for sensitive in sensitive_keys):
-            continue
+            event_to_send[key] = "********"
         else:
             event_to_send[key] = event.__dict__()[key]
     

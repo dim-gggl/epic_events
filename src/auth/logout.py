@@ -3,7 +3,6 @@ from src.data_access.config import Session
 from src.crm.models import User
 from src.views.views import MainView
 from datetime import datetime, timezone
-from src.sentry.observability import log_authentication_event, log_error
 
 
 

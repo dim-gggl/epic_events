@@ -1,7 +1,7 @@
 from src.data_access.repository import contract_repository, event_repository
 from src.data_access.config import Session
-from src.crm.models import Contract, Event
-from src.auth.permissions import has_permission_for_contract, has_permission, require_permission, login_required
+from src.crm.models import Contract
+from src.auth.permissions import require_permission, login_required
 from typing import List, Optional
 
 class ContractLogic:

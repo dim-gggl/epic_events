@@ -5,10 +5,9 @@ from src.data_access.config import Session
 from src.crm.models import User
 from src.auth.jwt.generate_token import generate_token
 from src.auth.jwt.token_storage import store_token
-from src.exceptions import InvalidUsernameError, InvalidPasswordError
 from src.auth.hashing import verify_password
 from src.views.views import MainView
-from src.sentry.observability import log_authentication_event, log_error
+from src.sentry.observability import log_authentication_event
 
 view = MainView()
 

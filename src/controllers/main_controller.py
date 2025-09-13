@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import Callable, Any, Optional
 from datetime import datetime
 

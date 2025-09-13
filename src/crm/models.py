@@ -2,7 +2,7 @@ from enum import StrEnum
 from typing import Union
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, DateTime, Numeric, Boolean,
-    CheckConstraint, Text, UniqueConstraint, Index, Table, text
+    CheckConstraint, Text, Index, text
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -10,38 +10,38 @@ from sqlalchemy import Numeric, ARRAY
 from sqlalchemy.ext.mutable import MutableList
 
 from src.data_access.config import Base
-from src.exceptions import OperationDeniedError
+
 
 class Permission(StrEnum):
-    LIST_USERS = "list_users"
-    VIEW_USER = "view_user"
-    CREATE_USER = "create_user"
-    UPDATE_USER = "update_user"
-    DELETE_USER = "delete_user"
-    LIST_ROLES = "list_roles"
-    VIEW_ROLE = "view_role"
-    CREATE_ROLE = "create_role"
-    UPDATE_ROLE = "update_role"
-    DELETE_ROLE = "delete_role"
-    ASSIGN_ROLE = "assign_role"
-    LIST_CLIENTS = "list_clients"
-    VIEW_CLIENT = "view_client"
-    CREATE_CLIENT = "create_client"
-    UPDATE_CLIENT = "update_client"
-    DELETE_CLIENT = "delete_client"
-    LIST_CONTRACTS = "list_contracts"
-    VIEW_CONTRACT = "view_contract"
-    CREATE_CONTRACT = "create_contract"
-    UPDATE_CONTRACT = "update_contract"
-    DELETE_CONTRACT = "delete_contract"
-    LIST_EVENTS = "list_events"
-    VIEW_EVENT = "view_event"
-    CREATE_EVENT = "create_event"
-    UPDATE_EVENT = "update_event"
-    DELETE_EVENT = "delete_event"
+    LIST_USERS = "user:list"
+    VIEW_USER = "user:view"
+    CREATE_USER = "user:create"
+    UPDATE_USER = "user:update"
+    DELETE_USER = "user:delete"
+    LIST_ROLES = "role:list"
+    VIEW_ROLE = "role:view"
+    CREATE_ROLE = "role:create"
+    UPDATE_ROLE = "role:update"
+    DELETE_ROLE = "role:delete"
+    ASSIGN_ROLE = "role:assign"
+    LIST_CLIENTS = "client:list"
+    VIEW_CLIENT = "client:view"
+    CREATE_CLIENT = "client:create"
+    UPDATE_CLIENT = "client:update"
+    DELETE_CLIENT = "client:delete"
+    LIST_CONTRACTS = "contract:list"
+    VIEW_CONTRACT = "contract:view"
+    CREATE_CONTRACT = "contract:create"
+    UPDATE_CONTRACT = "contract:update"
+    DELETE_CONTRACT = "contract:delete"
+    LIST_EVENTS = "event:list"
+    VIEW_EVENT = "event:view"
+    CREATE_EVENT = "event:create"
+    UPDATE_EVENT = "event:update"
+    DELETE_EVENT = "event:delete"
 
 
-PermLike = Union[str, Permission]
+PermLike = str | Permission
 
 
 class Role(Base):
@@ -61,19 +61,6 @@ class Role(Base):
 
     def __str__(self):
         return self.name
-    
-    def get_users_count(self):
-        return len(self.users)
-    
-    def has_users(self):
-        return bool(self.users)
-    
-    def get_active_users(self):
-        return [user for user in self.users if user.is_active]
-    
-    def can_(self, permission: PermLike) -> bool:
-        perm_value = permission.value if isinstance(permission, Permission) else permission
-        return perm_value in self.permissions
 
 
 class User(Base):

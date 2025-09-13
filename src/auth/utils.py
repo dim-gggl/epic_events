@@ -1,6 +1,4 @@
 import os
-import getpass
-import sys
 
 from rich.console import Console
 from src.views.views import MainView

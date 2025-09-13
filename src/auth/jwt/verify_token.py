@@ -1,7 +1,6 @@
 import jwt
 from src.auth.utils import get_secret_key
 from src.exceptions import InvalidTokenError, ExpiredTokenError
-from src.sentry.observability import log_authentication_event, log_error
 
 SECRET_KEY = get_secret_key()
 

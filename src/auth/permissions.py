@@ -1,4 +1,3 @@
-from __future__ import annotations
 from typing import Dict, List
 from functools import wraps
 
@@ -96,27 +95,6 @@ def require_permission(permission: str):
     return decorator
 
 # Complex permission checks
-def has_permission_for_client(access_token: str, action: str, client: Client, user_id: int) -> bool:
-    if has_permission(access_token, f"client:{action}:any"):
-        return True
-    if has_permission(access_token, f"client:{action}:own") and client.commercial_id == user_id:
-        return True
-    return False
-
-def has_permission_for_contract(access_token: str, action: str, contract: Contract, user_id: int) -> bool:
-    if has_permission(access_token, f"contract:{action}:any"):
-        return True
-    if has_permission(access_token, f"contract:{action}:own") and contract.commercial_id == user_id:
-        return True
-    return False
-
-def has_permission_for_event(access_token: str, action: str, event: Event, user_id: int) -> bool:
-    if has_permission(access_token, f"event:{action}:any"):
-        return True
-    if has_permission(access_token, f"event:{action}:assigned") and event.support_contact_id == user_id:
-        return True
-    return False
-
 def has_permission_for_user(access_token: str, action: str, user_to_view: User, user_id: int) -> bool:
     if has_permission(access_token, f"user:{action}:any"):
         return True

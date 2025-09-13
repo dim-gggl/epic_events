@@ -1,9 +1,9 @@
+from typing import List, Optional
+from sqlalchemy.orm import joinedload
+
 from src.data_access.repository import company_repository
 from src.data_access.config import Session
 from src.crm.models import Company
-from src.auth.permissions import has_permission
-from typing import List, Optional
-from sqlalchemy.orm import joinedload
 from src.auth.permissions import require_permission, login_required
 
 
