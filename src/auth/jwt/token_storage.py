@@ -102,7 +102,7 @@ def get_access_token() -> Optional[str]:
     return token_data.get('access_token') if token_data else None
 
 
-def get_user_info() -> Optional[Dict[str, Any]]:
+def get_user_info_from_token() -> Optional[Dict[str, Any]]:
     """
     Get stored user information.
     

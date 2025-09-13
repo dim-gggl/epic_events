@@ -7,7 +7,7 @@ from src.auth.permissions import require_permission, login_required
 
 class ClientLogic:
     @require_permission("client:create")
-    def create_client(self, client_data: dict, commercial_id: int) -> Client:
+    def create_client(self, access_token: str, client_data: dict, commercial_id: int) -> Client:
         with Session() as session:
             client_data["commercial_id"] = commercial_id
             client = client_repository.create(client_data, session)

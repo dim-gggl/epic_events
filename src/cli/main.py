@@ -27,7 +27,7 @@ def get_required_token() -> str | None:
         return None
     return token
 
-# Help formatting functions from the old CLI
+# Help formatting functions for the CLI
 @clear_console
 def build_logo_text() -> Text:
     text = LOGO_PATH.read_text(encoding="utf-8")
@@ -42,40 +42,104 @@ def build_logo_text() -> Text:
     t.stylize(logo_style, 225, -1)
     return t
 
+
+def _format_usage_line(line: str, styled_text: Text) -> None:
+    """Format a usage line with specific styling for command and options."""
+    styled_text.append('Usage: ', style="bold gold1")
+    parts = line.split(' ', 2)
+    if len(parts) > 1:
+        styled_text.append(parts[1] + ' ', style="bold orange_red1")
+    if len(parts) > 2:
+        styled_text.append(parts[2], style="dim medium_spring_green")
+    styled_text.append('\n')
+
+
+def _format_section_header(line: str, styled_text: Text) -> None:
+    """Format section headers (lines ending with ':')."""
+    styled_text.append(line, style="bold medium_spring_green")
+    styled_text.append('\n')
+
+
+def _format_command_line(line: str, styled_text: Text) -> None:
+    """Format command lines (indented with 2 spaces, not 4)."""
+    parts = line.strip().split(None, 1)
+    styled_text.append('  ', style="grey100")
+    
+    if parts:
+        styled_text.append(parts[0], style="bold orange_red1")
+        if len(parts) > 1:
+            styled_text.append('  ', style="grey100")
+            styled_text.append(parts[1], style="dim grey100")
+    else:
+        styled_text.append(line, style="grey100")
+    
+    styled_text.append('\n')
+
+
+def _format_option_line(line: str, styled_text: Text) -> None:
+    """Format option lines (indented with 4 spaces, containing -- or -)."""
+    styled_text.append(line, style="dim grey100")
+    styled_text.append('\n')
+
+
+def _format_empty_line(styled_text: Text) -> None:
+    """Format empty lines."""
+    styled_text.append('\n')
+
+
+def _format_default_line(line: str, styled_text: Text) -> None:
+    """Format any other line with default styling."""
+    styled_text.append(line, style="grey100")
+    styled_text.append('\n')
+
+
+def _determine_line_type(line: str) -> str:
+    """Determine the type of line for appropriate formatting."""
+    line_stripped = line.strip()
+    
+    if line_stripped.startswith('Usage:'):
+        return 'usage'
+    elif line_stripped.endswith(':') and not line.startswith('  '):
+        return 'section_header'
+    elif line.startswith('  ') and not line.startswith('    '):
+        return 'command'
+    elif ('--' in line_stripped or line_stripped.startswith('-')) and line.startswith('    '):
+        return 'option'
+    elif not line_stripped:
+        return 'empty'
+    else:
+        return 'default'
+
+
 def format_help_with_styles(help_text: str) -> Text:
+    """
+    Format help text with rich styling for better readability.
+    
+    Args:
+        help_text: Raw help text from Click command
+        
+    Returns:
+        Rich Text object with applied styling
+    """
     styled_text = Text()
     lines = help_text.split('\n')
+    
     for line in lines:
-        line_stripped = line.strip()
-        if line_stripped.startswith('Usage:'):
-            styled_text.append('Usage: ', style="bold gold1")
-            usage_cmd = line_stripped.strip().split(' ')[1] + ' '
-            styled_text.append(usage_cmd, style="bold orange_red1")
-            styled_text.append(' '.join(line_stripped.strip().split(' ')[2:]), style="dim medium_spring_green")
-            styled_text.append('\n')
-        elif line_stripped.endswith(':') and not line.startswith('  '):
-            styled_text.append(line_stripped, style="bold medium_spring_green")
-            styled_text.append('\n')
-        elif line.startswith('  ') and not line.startswith('    '):
-            parts = line_stripped.split(None, 1)
-            if parts:
-                styled_text.append('  ', style="grey100")
-                styled_text.append(parts[0], style="bold orange_red1")
-                if len(parts) > 1:
-                    styled_text.append('  ', style="grey100")
-                    styled_text.append(parts[1], style="dim grey100")
-                styled_text.append('\n')
-            else:
-                styled_text.append(line, style="grey100")
-                styled_text.append('\n')
-        elif ('--' in line_stripped or line_stripped.startswith('-')) and line.startswith('    '):
-            styled_text.append(line, style="dim grey100")
-            styled_text.append('\n')
-        elif not line_stripped:
-            styled_text.append('\n')
+        line_type = _determine_line_type(line)
+        
+        if line_type == 'usage':
+            _format_usage_line(line, styled_text)
+        elif line_type == 'section_header':
+            _format_section_header(line, styled_text)
+        elif line_type == 'command':
+            _format_command_line(line, styled_text)
+        elif line_type == 'option':
+            _format_option_line(line, styled_text)
+        elif line_type == 'empty':
+            _format_empty_line(styled_text)
         else:
-            styled_text.append(line, style="grey100")
-            styled_text.append('\n')
+            _format_default_line(line, styled_text)
+    
     return styled_text
 
 @clear_console

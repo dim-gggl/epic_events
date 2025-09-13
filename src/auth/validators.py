@@ -35,7 +35,7 @@ def _validate_username_uniqueness(username: str) -> bool:
     """Validate that a username is not already in the database."""
     with Session() as session:
         return not session.scalar(
-            select(User).where(User.username == username).one_or_none()
+            select(User).where(User.username == username)
         )
 
 

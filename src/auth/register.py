@@ -13,4 +13,4 @@ def register_user(access_token: str, username: str, full_name: str, email: str, 
         "password": password,
         "role_id": role_id
     }
-    user_logic.create_user(user_data)
+    user_logic.create_user(access_token, user_data)

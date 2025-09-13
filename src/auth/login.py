@@ -1,5 +1,6 @@
 import getpass
 from datetime import datetime
+from sqlalchemy import select
 
 from src.data_access.config import Session
 from src.crm.models import User
@@ -7,7 +8,7 @@ from src.auth.jwt.generate_token import generate_token
 from src.auth.jwt.token_storage import store_token
 from src.auth.hashing import verify_password
 from src.views.views import MainView
-from src.sentry.observability import log_authentication_event
+
 
 view = MainView()
 
@@ -24,14 +25,13 @@ def login(username: str, password: str | None = None) -> tuple[str, str, datetim
         password = getpass.getpass()
         
     with Session() as session:
-        user = session.query(User).filter(User.username==username).one_or_none()
+        user = session.scalars(select(User).where(User.username == username)).first()
+        
         if not user:
-            log_authentication_event("login_failed", success=False, context={"reason": "unknown_username", "username": username})
             view.wrong_message("Unknown username.")
             return
         
         if not verify_password(password, user.password_hash):
-            log_authentication_event("login_failed", success=False, context={"reason": "wrong_password", "user_id": user.id})
             view.wrong_message("Wrong password.")
             return
             
@@ -39,9 +39,7 @@ def login(username: str, password: str | None = None) -> tuple[str, str, datetim
         user.refresh_token_hash = refresh_hash.decode("utf-8")
         session.commit()
         
-        store_token(access_token, raw_refresh, refresh_exp, user.id, user.role_id)
-        log_authentication_event("login_success", success=True, context={"user_id": user.id})
-        
+        store_token(access_token, raw_refresh, refresh_exp, user.id, user.role_id)        
         view.success_message(f"Login successful. Connected as {user.username}")
         view.display_login(access_token, raw_refresh, refresh_exp)
         

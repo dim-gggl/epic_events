@@ -67,7 +67,7 @@ Here is what should appear:
 And from here, we could decide to see the details from the client with the ID #12:
 
 ```bash
-epic-events client view -i 12
+epic-events client view 12
 ```
 
 And here's what the oupput should look like :

@@ -7,7 +7,7 @@ from typing import List, Optional
 
 class UserLogic:
     @require_permission("user:create")
-    def create_user(self, user_data: dict) -> User:
+    def create_user(self, access_token: str, user_data: dict) -> User:
         with Session() as session:
             user_data["password_hash"] = hash_password(user_data["password"])
             del user_data["password"]

@@ -35,8 +35,6 @@ def clear_console(func):
 def centered(content: Text | str, style: Style=None) -> Align:
     return Align.center(content, style=style)
 
-PRESS_ENTER_CENTERED = centered("Press ENTER", "orange_red1")
-
 def banner(content, 
            style, 
            justify, 
@@ -250,12 +248,23 @@ class MainView:
     @clear_console
     def display_events(self, events):
         """Display a list of events."""
-        print(banner(f"EVENTS ({len(events)})", epic_style, "center", "bold gold1"))
+        print(banner(
+            f"EVENTS ({len(events)})", epic_style, "center", "bold gold1"
+            )
+        )
         table = Table(box=box.SIMPLE, show_header=True)
-        table.add_column(header=Text("ID", style=epic_style), justify="center")
-        table.add_column(header=Text("Title", style=epic_style), justify="center")
-        table.add_column(header=Text("Start Date", style=epic_style), justify="center")
-        table.add_column(header=Text("Support ID", style=epic_style), justify="center")
+        table.add_column(
+            header=Text("ID", style=epic_style), justify="center"
+        )
+        table.add_column(
+            header=Text("Title", style=epic_style), justify="center"
+        )
+        table.add_column(
+            header=Text("Start Date", style=epic_style), justify="center"
+        )
+        table.add_column(
+            header=Text("Support ID", style=epic_style), justify="center"
+        )
         for event in events:
             table.add_row(
                 Text(
@@ -274,6 +283,7 @@ class MainView:
             )
         print(table, justify="center")
 
+
     @clear_console
     def display_event(self, event):
         """Display event details."""
@@ -282,64 +292,9 @@ class MainView:
             "support_contact_id", "start_date",
             "end_date", "participant_count",
             "full_address", "notes"
-        ])
-        # table = Table(title=Text(event.title.upper(), style=logo_style), box=box.ROUNDED, show_header=False)
-        # table.add_column()
-        # table.add_column()
-        
-        # table.add_row(Text("ID", style=logo_style), Text(str(event.id), style="grey100"))
-        # table.add_row(Text("Title", style=logo_style), Text(event.title, style="grey100"))
-        # table.add_row(Text(
-        #     "Contract ID", 
-        #     style=logo_style
-        #     ), 
-        #     Text(str(event.contract_id), style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Support ID", style=logo_style), 
-        #     Text(
-        #         str(event.support_contact_id or "Not assigned"), 
-        #         style="grey100"
-        #     )
-        # )
-        # table.add_row(
-        #     Text("Start Date", style=logo_style), 
-        #     Text(
-        #         event.start_date.strftime("%d/%m/%Y"), 
-        #         style="grey100"
-        #     )
-        # )
-        # table.add_row(
-        #     Text("End Date", style=logo_style), 
-        #     Text(
-        #         event.end_date.strftime("%d/%m/%Y"), 
-        #         style="grey100"
-        #     )
-        # )
-        # table.add_row(
-        #     Text(
-        #         "Participants", 
-        #         style=logo_style
-        #     ), 
-        #     Text(
-        #         str(event.participant_count), 
-        #         style="grey100"
-        #     )
-        # )
-        # table.add_row(
-        #     Text("Address", style=logo_style), 
-        #     Text(
-        #         event.full_address or "Not specified", 
-        #         style="grey100"
-        #     )
-        # )
-        # table.add_row(
-        #     Text("Notes", style=logo_style), 
-        #     Text(event.notes or "No notes", style="grey100")
-        # )
+            ]
+        )
 
-        
-        # print(table, justify="center")
 
     @clear_console
     def display_contracts(self, contracts):
@@ -368,70 +323,74 @@ class MainView:
             )
         print(table, justify="center")
 
+
     @clear_console
     def display_contract(self, contract):
         """Display contract details."""
-        table = Table(
-            title=Text(f"CONTRACT #{contract.id}", 
-            style=logo_style), 
-            box=box.ROUNDED, 
-            show_header=False
+        self.display_details(contract, fields=[
+            "id", "client_id", "commercial_id",
+            "total_amount", "remaining_amount",
+            "is_signed", "is_fully_paid",
+            "created_at", "updated_at"
+            ]
         )
-        table.add_column()
-        table.add_column()
-        
-        table.add_row(
-            Text("ID", style=logo_style), 
-            Text(str(contract.id), 
-            style="grey100")
+    
+    @clear_console
+    def display_companies(self, companies):
+        """Display a list of companies."""
+        print(banner(
+            f"COMPANIES ({len(companies)})", 
+            "bold grey100",
+            "center", 
+            "bold gold1"
+            )
         )
-        table.add_row(
-            Text("Client ID", style=logo_style), 
-            Text(str(contract.client_id), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Commercial ID", style=logo_style), 
-            Text(str(contract.commercial_id), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Total Amount", style=logo_style), 
-            Text(f"{contract.total_amount}€", 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Remaining Amount", 
-            style=logo_style), 
-            Text(f"{contract.remaining_amount}€", 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Signed", style=logo_style), 
-            Text("Yes" if contract.is_signed else "No", 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Fully Paid", style=logo_style), 
-            Text("Yes" if contract.is_fully_paid else "No", 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Created At", style=logo_style), 
-            Text(contract.created_at.strftime("%d/%m/%Y"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Updated At", style=logo_style), 
-            Text(contract.updated_at.strftime("%d/%m/%Y"), 
-            style="grey100")
-        )
-        table.add_row(
-            Text("Events", style=logo_style), 
-            Text(str(len(contract.events)), 
-            style="grey100")
-        )
+        table = Table(box=box.MINIMAL, show_header=True)
+        table.add_column(header=Text("ID", style=epic_style), justify="right")
+        table.add_column(header=Text("Name", style=epic_style), justify="left")
+        for company in companies:
+            table.add_row(
+                Text(str(company.id), style="bold gold1"), 
+                Text(company.name, style="bold grey100")
+            )
         print(table, justify="center")
+
+    @clear_console
+    def display_company(self, company):
+        """Display company details."""
+        self.display_details(company, fields=["id", "name", "created_at"])
+
+
+    @clear_console
+    def display_list_clients(self, clients):
+        print(banner(f"CLIENTS ({len(clients)})", epic_style, "center", logo_style))
+        table = Table(box=box.SIMPLE, show_header=True)
+        table.add_column(header=Text("ID", style=epic_style), justify="center")
+        table.add_column(header=Text("Full Name", style=epic_style), justify="center")
+        table.add_column(header=Text("Commercial ID", style=epic_style), justify="center")
+        for client in clients:
+            table.add_row(
+                Text(str(client.id), 
+                style="bold gold1"), 
+                Text(client.full_name, style="grey100"), 
+                Text(str(client.commercial_id), 
+                style="grey100")
+            )
+        print(table, justify="center")
+        
+    @clear_console
+    def display_client_detail(self, access_token, client):
+        self.display_details(
+            client, 
+            fields=[
+                "id", "full_name", "email", 
+                "phone", "company_id", 
+                "commercial_id", 
+                "first_contact_date", 
+                "last_contact_date"
+            ]
+        )
+
 
     @clear_console
     def display_users(self, users):
@@ -452,6 +411,7 @@ class MainView:
             )
         print(table, justify="center")
 
+
     @clear_console
     def display_user(self, user):
         """Display user details."""
@@ -461,56 +421,6 @@ class MainView:
             "created_at", "updated_at",
             "last_login"
         ])
-        # table = Table(
-        #     title=Text(user.username.upper(), 
-        #     style=logo_style), 
-        #     box=box.ROUNDED, 
-        #     show_header=False
-        # )
-        # table.add_column()
-        # table.add_column()
-        
-        # table.add_row(Text("ID", style=logo_style), Text(str(user.id), style="grey100"))
-        # table.add_row(Text("Username", style=logo_style), Text(user.username, style="grey100"))
-        # table.add_row(Text("Full Name", style=logo_style), Text(user.full_name, style="grey100"))
-        # table.add_row(Text("Email", style=logo_style), Text(user.email, style="grey100"))
-        
-        # # Show role name instead of ID
-        # role_names = {1: 'Management', 2: 'Commercial', 3: 'Support'}
-        # role_name = role_names.get(user.role_id, f'Role {user.role_id}')
-        # table.add_row(Text("Role", style=logo_style), Text(f"{role_name} ({user.role_id})", style="grey100"))
-        
-        # table.add_row(
-        #     Text("Active", style=logo_style), 
-        #     Text("Yes" if user.is_active else "No", 
-        #     style="grey100"))
-        # table.add_row(
-        #     Text("Created At", style=logo_style), 
-        #     Text(user.created_at.strftime("%d/%m/%Y %H:%M"), 
-        #     style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Updated At", style=logo_style), 
-        #     Text(user.updated_at.strftime("%d/%m/%Y %H:%M"), 
-        #     style="grey100")
-        # )
-        # table.add_row(
-        #     Text("Events", style=logo_style), 
-        #     Text(str(len(user.supported_events)), 
-        #     style="grey100")
-        # )
-
-        # if user.last_login:
-        #     table.add_row(
-        #         Text("Last Login", 
-        #         style=logo_style), 
-        #         Text(user.last_login.strftime("%d/%m/%Y %H:%M"), 
-        #         style="grey100")
-        #     )
-        # else:
-        #     table.add_row(Text("Last Login", style=logo_style), Text("Never", style="grey100"))
-            
-        # print(table, justify="center")
 
 
     @clear_console
@@ -574,70 +484,6 @@ class MainView:
             print(press_enter_panel, justify="center")
             input()
 
-    @clear_console
-    def display_list_clients(self, clients):
-        print(banner(f"CLIENTS ({len(clients)})", epic_style, "center", logo_style))
-        table = Table(box=box.SIMPLE, show_header=True)
-        table.add_column(header=Text("ID", style=epic_style), justify="center")
-        table.add_column(header=Text("Full Name", style=epic_style), justify="center")
-        table.add_column(header=Text("Commercial ID", style=epic_style), justify="center")
-        for client in clients:
-            table.add_row(
-                Text(str(client.id), 
-                style="bold gold1"), 
-                Text(client.full_name, style="grey100"), 
-                Text(str(client.commercial_id), 
-                style="grey100")
-            )
-        print(table, justify="center")
-        
-    @clear_console
-    def display_client_detail(self, access_token, client):
-        self.display_details(
-            client, 
-            fields=[
-                "id", "full_name", "email", 
-                "phone", "company_id", 
-                "commercial_id", 
-                "first_contact_date", 
-                "last_contact_date"
-            ]
-        )
-    
-    @clear_console
-    def display_list_events(self, events):
-        for event in events:
-            table = Table(
-                title=Text(events.title.upper(), 
-                style=epic_style), 
-                box=box.MINIMAL, 
-                show_header=False
-            )
-            table.add_column()
-            table.add_column()
-            table.add_row(
-                Text("ID", style=epic_style), 
-                Text(str(event.id), 
-                style="grey100")
-            )
-            table.add_row(
-                Text("Start Date", style=epic_style), 
-                Text(event.start_date.strftime("%d/%m/%Y"), 
-                style="grey100")
-            )
-            table.add_row(
-                Text("Participant Count", 
-                style=epic_style), 
-                Text(str(event.participant_count), 
-                style="grey100")
-            )
-            table.add_row(
-                Text("Participant Count", 
-                style=epic_style), 
-                Text(str(event.participant_count), 
-                style="grey100")
-            )
-        print(table, justify="center")
         
     @clear_console
     def display_details(self, obj, fields=None):
@@ -658,7 +504,7 @@ class MainView:
             for key, value in obj.__dict__.items():
                 if not key.startswith("_"):
                     if isinstance(value, datetime):
-                        value = value.strftime("%d/%m/%Y")  
+                        value = value.strftime("%d/%m/%Y - %H:%M")  
                     table.add_row(
                         Text(
                             key.replace("_", " ").capitalize(), 
@@ -678,7 +524,11 @@ class MainView:
                     "last_contact_date", "start_date", 
                     "end_date"
                 ]):
-                    value = getattr(obj, field).strftime("%d/%m/%Y")
+                    value = getattr(obj, field)
+                    if isinstance(value, datetime):
+                        value = value.strftime("%d/%m/%Y - %H:%M")
+                    else:
+                        value = str(value)
                 else:
                     value = str(getattr(obj, field))
                 table.add_row(
@@ -692,22 +542,3 @@ class MainView:
                     )
                 )
             print(table, justify="center")
-            
-    @clear_console
-    def display_companies(self, companies):
-        """Display a list of companies."""
-        print(banner(f"COMPANIES ({len(companies)})", white, "center", "bold gold1"))
-        table = Table(box=box.MINIMAL, show_header=True)
-        table.add_column(header=Text("ID", style=epic_style), justify="center")
-        table.add_column(header=Text("Name", style=epic_style), justify="left")
-        for company in companies:
-            table.add_row(
-                Text(str(company.id), style="bold gold1"), 
-                Text(company.name, style="bold grey100")
-            )
-        print(table, justify="center")
-
-    @clear_console
-    def display_company(self, company):
-        """Display company details."""
-        self.display_details(company, fields=["id", "name", "created_at"])

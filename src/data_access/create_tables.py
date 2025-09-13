@@ -10,7 +10,7 @@ from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
 def _seed_roles(session: Session) -> None:
     for role_name in ORDERED_DEFAULT_ROLES:
         perms = DEFAULT_ROLE_PERMISSIONS.get(role_name, [])
-        role = session.query(Role).filter(Role.name == role_name).one_or_none()
+        role = session.query(Role).filter(Role.name == role_name).first()
         if role is None:
             role = Role(name=role_name, permissions=perms)
             session.add(role)

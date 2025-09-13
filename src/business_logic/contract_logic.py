@@ -6,7 +6,7 @@ from typing import List, Optional
 
 class ContractLogic:
     @require_permission("contract:create")
-    def create_contract(self, contract_data: dict) -> Contract:
+    def create_contract(self, access_token: str, contract_data: dict) -> Contract:
         with Session() as session:
             contract = contract_repository.create(contract_data, session)
             session.commit()
