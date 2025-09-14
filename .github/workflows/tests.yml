@@ -26,9 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     # Secrets au niveau job (disponibles pour toutes les steps sans les exposer)
     env:
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      SENTRY_DSN:   ${{ secrets.SENTRY_DSN }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || "Rubb%Soul%5432" }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY || "BALIZRO_0292_CATRASANKE_4745_VUQUDYGO-NISRIQY-86-BOLATA" }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN || "https://0c628a483b300bbe8afe85f6811a8926@o4509950873174016.ingest.de.sentry.io/4509950875140176" }}
       # Ajoute ici d'autres secrets si besoin (API keys, etc.)
     steps:
       - name: Checkout
