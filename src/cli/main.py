@@ -10,7 +10,7 @@ from pathlib import Path
 from src.controllers.main_controller import main_controller
 from src.auth.jwt.token_storage import get_access_token
 from src.data_access.create_tables import init_db
-from src.data_access.create_manager import init_manager
+from src.data_access.create_manager import init_manager, _ensure_root
 from src.views.config import epic_style, logo_style
 from src.views.views import clear_console
 
@@ -231,6 +231,10 @@ def db_create():
 @click.option("-e", "--email", help="Email", required=False)
 def manager_create(username, full_name, email):
     """Create a new manager."""
+    has_root = _ensure_root()
+    if has_root is False:
+        print(Panel("This command must be run with root privileges.\nOn macOS/Linux use: sudo python epic_events.py manager_create ...\nOn Windows run your shell as Administrator.", title="Permission required", border_style="red", box=box.ROUNDED))
+    # Always call init_manager; it no-ops if not root
     init_manager(username, full_name, email)
 
 # User commands
