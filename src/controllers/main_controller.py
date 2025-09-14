@@ -139,41 +139,53 @@ class MainController:
             "role_id": role_id
             }
 
-    def get_client_data(self) -> dict:
-        full_name = _ask(
-            view.get_full_name, 
-            required_msg="Full name is required."
-        )
-        email = _ask(
-            view.get_email, 
-            required_msg="Email is required.", 
-            invalid_msg="Invalid email address.", 
-            validate=is_valid_email
-        )
-        phone = _ask(
-            view.get_phone, 
-            required_msg="Phone number is required.", 
-            invalid_msg="Invalid phone number. Please try again.", 
-            validate=is_valid_phone
-        )
-        company_id = _ask(
-            view.get_company_id, 
-            cast=_to_int, 
-            required_msg="Company ID is required.", 
-            invalid_msg="Company ID must be an integer."
-        )
-        first_contact_date = _ask(
-            view.get_first_contact_date, 
-            cast=_to_date, 
-            required_msg="The date of the first contact with the client.", 
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
-        )
-        last_contact_date = _ask(
-            view.get_last_contact_date, 
-            cast=_to_date, 
-            required_msg="The date of the last contact with the client.", 
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
-        )
+    def get_client_data(self, 
+                        full_name: str, 
+                        email: str, 
+                        phone: str, 
+                        company_id: str, 
+                        first_contact_date: str, 
+                        last_contact_date: str) -> dict:
+        if not full_name:
+            full_name = _ask(
+                view.get_full_name,
+                required_msg="Full name is required."
+            )
+        if not email:
+            email = _ask(
+                view.get_email, 
+                required_msg="Email is required.", 
+                invalid_msg="Invalid email address.", 
+                validate=is_valid_email
+            )
+        if not phone:
+            phone = _ask(
+                view.get_phone, 
+                required_msg="Phone number is required.", 
+                invalid_msg="Invalid phone number. Please try again.", 
+                validate=is_valid_phone
+            )
+        if not company_id:
+            company_id = _ask(
+                view.get_company_id, 
+                cast=_to_int, 
+                required_msg="Company ID is required.", 
+                invalid_msg="Company ID must be an integer."
+            )
+        if not first_contact_date:
+            first_contact_date = _ask(
+                view.get_first_contact_date, 
+                cast=_to_date, 
+                required_msg="The date of the first contact with the client.", 
+                invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
+            )
+        if not last_contact_date:
+            last_contact_date = _ask(
+                view.get_last_contact_date, 
+                cast=_to_date, 
+                required_msg="The date of the last contact with the client.", 
+                invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
+             )
         return {
             "full_name": full_name, 
             "email": email, 
@@ -182,77 +194,130 @@ class MainController:
             "first_contact_date": first_contact_date, 
             "last_contact_date": last_contact_date}
 
-    def get_contract_data(self) -> dict:
-        client_id = _ask(
-            view.get_client_id, 
-            cast=_to_int, 
-            required_msg="Client ID is required."
-        )
-        total_amount = _ask(
-            view.get_total_amount, 
-            cast=_to_float, 
-            required_msg="Total amount is required."
-        )
-        remaining_amount = _ask(
-            view.get_remaining_amount, 
-            cast=_to_float, 
-            required_msg="Remaining amount is required."
-        )
-        is_signed = _ask(
-            view.get_is_signed, 
-            cast=_to_bool_yes_no, 
-            required_msg="Is signed is required."
-        )
-        is_fully_paid = _ask(
-            view.get_is_fully_paid, 
-            cast=_to_bool_yes_no, 
-            required_msg="Is fully paid is required."
-        )
+    def get_contract_data(self, 
+                          client_id: str, 
+                          commercial_id: str,
+                          total_amount: str, 
+                          remaining_amount: str, 
+                          is_signed: str, 
+                          is_fully_paid: str) -> dict:
+        if not client_id:
+            client_id = _ask(
+                view.get_client_id, 
+                cast=_to_int, 
+                required_msg="Client ID is required."
+            )
+        else:
+            # Convert string to int if provided as parameter
+            client_id = int(client_id)
+        if not commercial_id:
+            commercial_id = _ask(
+                view.get_commercial_id, 
+                cast=_to_int, 
+                required_msg="Commercial ID is required."
+            )
+        else:
+            # Convert string to int if provided as parameter
+            commercial_id = int(commercial_id)
+        if not total_amount:
+            total_amount = _ask(
+                view.get_total_amount, 
+                cast=_to_float, 
+                required_msg="Total amount is required."
+            )
+        else:
+            # Convert string to float if provided as parameter
+            total_amount = float(total_amount)
+        if not remaining_amount:
+            remaining_amount = _ask(
+                view.get_remaining_amount, 
+                cast=_to_float, 
+                required_msg="Remaining amount is required."
+            )
+        else:
+            # Convert string to float if provided as parameter
+            remaining_amount = float(remaining_amount)
+        if not is_signed:
+            is_signed = _ask(
+                view.get_is_signed,
+                cast=_to_bool_yes_no,
+                required_msg="Is signed is required."
+            )
+        else:
+            # Convert string to boolean if provided as parameter
+            is_signed = is_signed.lower() in ('true', '1', 'yes', 'y')
+        if not is_fully_paid:
+            is_fully_paid = _ask(
+                view.get_is_fully_paid,
+                cast=_to_bool_yes_no,
+                required_msg="Is fully paid is required."
+            )
+        else:
+            # Convert string to boolean if provided as parameter
+            is_fully_paid = is_fully_paid.lower() in ('true', '1', 'yes', 'y')
         return {
-            "client_id": client_id, 
-            "total_amount": total_amount, 
-            "remaining_amount": remaining_amount, 
-            "is_signed": is_signed, 
+            "client_id": client_id,
+            "commercial_id": commercial_id,
+            "total_amount": total_amount,
+            "remaining_amount": remaining_amount,
+            "is_signed": is_signed,
             "is_fully_paid": is_fully_paid
         }
         
-    def get_event_data(self) -> dict:
-        contract_id = _ask(
-            view.get_contract_id, 
-            cast=_to_int, 
-            required_msg="Contract ID is required."
-        )
-        title = _ask(
-            view.get_title, 
-            required_msg="Title is required."
-        )
-        full_address = _ask(
-            view.get_full_address, 
-            required_msg="Full address is required."
-        )
-        support_contact_id = _ask_optional(
-            view.get_support_contact_id, 
-            cast=_to_int 
-        )
-        start_date = _ask(
-            view.get_start_date, 
-            cast=_to_date, 
-            required_msg="Start date is required.", 
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
-        )
-        end_date = _ask(
-            view.get_end_date, 
-            cast=_to_date, 
-            required_msg="End date is required.", 
-            invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
-        )
-        participant_count = _ask(
-            view.get_participant_count, 
-            cast=_to_int, 
-            required_msg="Participant count is required."
-        )
-        notes = _ask_optional(
-            view.get_notes
+    def get_event_data(self, 
+                       contract_id: str, 
+                       title: str, 
+                       full_address: str, 
+                       support_contact_id: str, 
+                       start_date: str, 
+                       end_date: str, 
+                       participant_count: str, 
+                       notes: str) -> dict:
+        if not contract_id:
+            contract_id = _ask(
+                view.get_contract_id, 
+                cast=_to_int, 
+                required_msg="Contract ID is required."
+            )
+        if not title:
+            title = _ask(
+                view.get_title, 
+                required_msg="Title is required."
+            )
+        if not full_address:
+            full_address = _ask(
+                view.get_full_address, 
+                required_msg="Full address is required."
+            )
+        if not support_contact_id:
+            support_contact_id = _ask_optional(
+                view.get_support_contact_id, 
+                cast=_to_int 
+            )
+        if not start_date:
+            start_date = _ask(
+                view.get_start_date, 
+                cast=_to_date, 
+                required_msg="Start date is required.", 
+                invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
+            )
+        if not end_date:
+            end_date = _ask(
+                view.get_end_date, 
+                cast=_to_date, 
+                required_msg="End date is required.", 
+                invalid_msg=f"Invalid date. Expected format: {DATE_FMT}."
+            )
+        if not participant_count:
+            participant_count = _ask(
+                view.get_participant_count, 
+                cast=_to_int, 
+                required_msg="Participant count is required."
+            )
+        if not notes:
+            notes = _ask_optional(
+                view.get_notes, 
+                required_msg="Notes are required."
             )
         return {
             "contract_id": contract_id, 
@@ -284,11 +349,18 @@ class MainController:
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
-    def list_users(self, access_token: str):
+    def list_users(self, access_token: str, management: bool, commercial: bool, support: bool):
         try:
             users = user_logic.get_users(access_token)
+            if management:
+                users = [user for user in users if user.role_id == 1]
+            if commercial:
+                users = [user for user in users if user.role_id == 2]
+            if support:
+                users = [user for user in users if user.role_id == 3]
             view.display_users(users)
         except Exception as e:
+            sentry_sdk.capture_exception(e)
             view.wrong_message(f"An unexpected error occurred: {e}")
     
     def view_user(self, access_token: str, user_id: int):
@@ -299,6 +371,7 @@ class MainController:
             else:
                 view.wrong_message("User not found.")
         except Exception as e:
+            sentry_sdk.capture_exception(e)
             view.wrong_message(f"An unexpected error occurred: {e}")
 
     def update_user(self, access_token: str, user_id: int):
@@ -328,11 +401,23 @@ class MainController:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
     # Client
-    def create_client(self, access_token: str):
-        try:            
+    def create_client(self,
+                      access_token: str,
+                      full_name: str,
+                      email: str,
+                      phone: str,
+                      company_id: str,
+                      first_contact_date: str,
+                      last_contact_date: str):
+        try:
             user_info = get_user_info_from_token()
             user_id = user_info['user_id']
-            client_data = self.get_client_data()
+            client_data = self.get_client_data(full_name,
+                                               email,
+                                               phone,
+                                               company_id,
+                                               first_contact_date,
+                                               last_contact_date)
             client = client_logic.create_client(access_token, client_data, user_id)
             view.success_message(f"Client '{client.full_name}' created successfully.")
         except (PermissionError, ValueError) as e:
@@ -390,12 +475,40 @@ class MainController:
             return
 
     # Contract
-    def create_contract(self, access_token: str):
+    def create_contract(self, 
+                        access_token: str, 
+                        client_id: str, 
+                        commercial_id: str,
+                        total_amount: str, 
+                        remaining_amount: str, 
+                        is_signed: str, 
+                        is_fully_paid: str):
         try:
+            # Check if user has management role
             user_info = get_user_info_from_token()
-            commercial_id = user_info['user_id']
-            contract_data = self.get_contract_data()
-            contract_data['commercial_id'] = commercial_id
+            if user_info['role_id'] != 1:  # 1 = management role
+                view.wrong_message("Only management users can create contracts.")
+                return
+                
+            contract_data = self.get_contract_data(client_id, 
+                                                   commercial_id,
+                                                   total_amount, 
+                                                   remaining_amount, 
+                                                   is_signed, 
+                                                   is_fully_paid)
+            
+            # Validate that client and commercial are already related
+            from src.data_access.repository import client_repository
+            from src.data_access.config import Session
+            with Session() as session:
+                client = client_repository.get_by_id(contract_data['client_id'], session)
+                if not client:
+                    view.wrong_message("Client not found.")
+                    return
+                if client.commercial_id != contract_data['commercial_id']:
+                    view.wrong_message("The client and commercial must already be related.")
+                    return
+                    
             contract = contract_logic.create_contract(access_token, contract_data)
             view.success_message(f"Contract for client '{contract.client.full_name}' created successfully.")
         except (PermissionError, ValueError) as e:

@@ -243,18 +243,25 @@ def user(ctx: click.Context):
 attach_help(user)
 
 @user.command("create")
-def user_create():
+@click.option("-u", "--username", help="Login ID", required=False)
+@click.option("-n", "--full-name", help="Full name", required=False)
+@click.option("-e", "--email", help="Email", required=False)
+@click.option("-r", "--role-id", help="Role ID", required=False)
+def user_create(username, full_name, email, role_id):
     token = get_required_token()
     if not token:
         return
     main_controller.create_user(token)
 
 @user.command("list")
-def user_list():
+@click.option("--management", help="Management users", is_flag=True, required=False)
+@click.option("--commercial", help="Commercial users", is_flag=True, required=False)
+@click.option("--support", help="Support users", is_flag=True, required=False)
+def user_list(management=False, commercial=False, support=False):
     token = get_required_token()
     if not token:
         return
-    main_controller.list_users(token)
+    main_controller.list_users(token, management, commercial, support)
 
 @user.command("view")
 @click.argument("user_id", type=int)
@@ -290,11 +297,22 @@ def client(ctx: click.Context):
 attach_help(client)
 
 @client.command("create")
-def client_create():
+@click.option("-n", "--full-name", help="Full name", required=False)
+@click.option("-e", "--email", help="Email", required=False)
+@click.option("-p", "--phone", help="Phone", required=False)
+@click.option("-c", "--company-id", help="Company ID", required=False)
+@click.option("-f", "--first-contact-date", help="First contact date", required=False)
+@click.option("-l", "--last-contact-date", help="Last contact date", required=False)
+def client_create(full_name, email, phone, company_id, first_contact_date, last_contact_date):
     token = get_required_token()
     if not token:
         return
-    main_controller.create_client(token)
+    main_controller.create_client(
+        token, full_name, email, 
+        phone, company_id, 
+        first_contact_date, 
+        last_contact_date
+    )
 
 @client.command("list")
 @click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
@@ -338,11 +356,23 @@ def contract(ctx: click.Context):
 attach_help(contract)
 
 @contract.command("create")
-def contract_create():
+@click.option("--client-id", help="Client ID", required=False)
+@click.option("--commercial-id", help="Commercial ID", required=False)
+@click.option("--total-amount", help="Total amount", required=False)
+@click.option("--remaining-amount", help="Remaining amount", required=False)
+@click.option("--is-signed", help="Is signed", required=False)
+@click.option("--is-fully-paid", help="Is fully paid", required=False)
+def contract_create(client_id, commercial_id, total_amount, remaining_amount, is_signed, is_fully_paid):
     token = get_required_token()
     if not token:
         return
-    main_controller.create_contract(token)
+    main_controller.create_contract(token,
+                                    client_id, 
+                                    commercial_id, 
+                                    total_amount, 
+                                    remaining_amount, 
+                                    is_signed, 
+                                    is_fully_paid)
 
 @contract.command("list")
 @click.option("--only-mine", is_flag=True, help="Show only your contracts", default=False)
@@ -393,7 +423,10 @@ def event_create():
     main_controller.create_event(token)
 
 @event.command("list")
-@click.option("--only-mine", is_flag=True, help="Show only your events", default=False)
+@click.option("--only-mine", 
+              is_flag=True, 
+              help="Show only your events", 
+              default=False)
 def event_list(only_mine):
     token = get_required_token()
     if not token:

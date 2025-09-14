@@ -23,12 +23,16 @@ def _build_url():
             "See .env.example for reference."
         )
     
+    # Percent-encode credentials to avoid DSN parsing issues
     pwd = urllib.parse.quote_plus(password)
     user = os.getenv("POSTGRES_USER", "epic_events_app")
+    user_enc = urllib.parse.quote_plus(user)
     host = os.getenv("POSTGRES_HOST", "127.0.0.1")
     database = os.getenv("POSTGRES_DB", "epic_events_db")
+    database_enc = urllib.parse.quote_plus(database)
     port = os.getenv("POSTGRES_PORT", "5432")
-    return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{database}"
+    # Note: host and port are not URL-encoded; they must remain literal
+    return f"postgresql+psycopg2://{user_enc}:{pwd}@{host}:{port}/{database_enc}"
 
 metadata = MetaData(schema="epic_events")
 

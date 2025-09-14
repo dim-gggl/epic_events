@@ -18,7 +18,7 @@ def get_secret_key() -> str:
 
 def _prompt_password(confirm: bool = True) -> str:
     """Prompt for a password securely (no echo)."""
-    pwd = console.input("New password: ", password=True, justify="center").strip()
+    pwd = console.input("New password: ", password=True).strip()
     if not is_valid_password(pwd):
         view.wrong_message("Password should be at least 8 characters long\n"
               "and contain at least one uppercase letter, one\n"
@@ -27,7 +27,7 @@ def _prompt_password(confirm: bool = True) -> str:
             return _prompt_password(confirm=False)
         return _prompt_password()
     if confirm:
-        rep = console.input("Confirm password: ", password=True, justify="center").strip()
+        rep = console.input("Confirm password: ", password=True).strip()
         if pwd != rep:
             view.wrong_message("Passwords do not match.")
             return

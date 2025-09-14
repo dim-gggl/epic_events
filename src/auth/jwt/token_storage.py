@@ -1,7 +1,7 @@
 import os
 import tempfile
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 from src.views.views import MainView
@@ -38,7 +38,7 @@ def store_token(access_token: str, refresh_token: str, refresh_expiry: datetime,
         'refresh_expiry': refresh_expiry.isoformat(),
         'user_id': user_id,
         'role_id': role_id,
-        'stored_at': datetime.utcnow().isoformat()
+        'stored_at': datetime.now(timezone.utc).isoformat()
     }
     
     try:
@@ -137,8 +137,13 @@ def update_access_token(new_access_token: str) -> None:
     token_data = get_stored_token()
     if token_data:
         token_data['access_token'] = new_access_token
-        token_data['stored_at'] = datetime.utcnow().isoformat()
-        
+        token_data['stored_at'] = datetime.now(timezone.utc).isoformat()
+        # Ensure datetime fields are serialized correctly
+        if isinstance(token_data.get('refresh_expiry'), datetime):
+            token_data['refresh_expiry'] = token_data['refresh_expiry'].isoformat()
+        if isinstance(token_data.get('stored_at'), datetime):
+            token_data['stored_at'] = token_data['stored_at'].isoformat()
+
         try:
             token_file = _get_auth_location()
             with open(token_file, 'w') as f:

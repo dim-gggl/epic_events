@@ -13,31 +13,39 @@ from src.auth.utils import _prompt_password
 from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS
 
 
-def _ensure_root() -> None:
-    """Abort if the current process is not run with administrative privileges.
+def _ensure_root() -> bool:
+    """Check administrative privileges without terminating the process.
 
-    On POSIX (macOS/Linux), require EUID == 0 (i.e., 'sudo ...').
-    On Windows, require an elevated process (Administrator).
+    Returns True when the current process has administrative privileges, False otherwise.
+
+    - On POSIX (macOS/Linux), require EUID == 0 (i.e., 'sudo ...').
+    - On Windows, require an elevated process (Administrator).
     """
     if os.name == "nt":
         try:
             is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
         except Exception:
+            # If we cannot determine admin status, treat as not elevated
             is_admin = False
+
         if not is_admin:
             sys.stderr.write("This command must be run as root.\n")
-            return
+            return False
+        return True
     else:
         if os.geteuid() != 0:
             sys.stderr.write("This command must be run with root privileges.\n")
-            return
+            return False
+        return True
 
 
 def init_manager(username: Optional[str]=None, 
                 full_name: Optional[str]=None, 
                 email: Optional[str]=None) -> None:
     """Create a 'management' user. Only callable as root."""
-    _ensure_root()
+    is_root = _ensure_root()
+    if is_root is False:
+        return
 
     # Collect inputs if missing
     if not username:
