@@ -35,6 +35,7 @@ jobs:
           pip install -U pip
           pip install uv
           pip install coverage pytest "genbadge[coverage]"
+          pip install rich click rich-click
 
       - name: Sync env from lockfile
         run: uv sync --frozen
