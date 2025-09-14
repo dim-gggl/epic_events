@@ -1,5 +1,5 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv) [![Static Badge](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13%20|%203.14-%233775A9?style=plastic&logo=python&logoColor=%23FFE569)](https://www.python.org/) [![Static Badge](https://img.shields.io/badge/SQLAlchemy-2.0.83-%23a11b18?style=plastic&logo=SQLAlchemy&logoColor=white&color=%23a11b18)](https://www.sqlalchemy.org/) ![Static Badge](https://img.shields.io/badge/PostgreSQL-16.10-%23336690?style=plastic&logo=PostgreSQL&logoColor=white) ![Static Badge](https://img.shields.io/badge/PyJWT-2.10.1-%232980b9?style=plastic&logo=JWT&logoColor=%232980b9) ![Static Badge](https://img.shields.io/badge/Rich-3.8.0-%236ab0de?style=plastic&logo=Rich&logoColor=white) ![Static Badge](https://img.shields.io/badge/sentry--sdk-2.35.1-%23be5db9?style=plastic&logo=Sentry&logoColor=white)
-![Coverage](./coverage.svg)
+![Coverage](./coverage.svg)  
 
 
 
