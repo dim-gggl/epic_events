@@ -35,7 +35,7 @@ jobs:
           pip install -U pip
           pip install uv
           pip install coverage pytest "genbadge[coverage]"
-          pip install rich click rich-click sentry_sdk
+          pip install rich click rich-click sentry_sdk sqlalchemy email-validator phonenumbers alembic bcrypt python-dotenv  psycopg2-binary
 
       - name: Sync env from lockfile
         run: uv sync --frozen
