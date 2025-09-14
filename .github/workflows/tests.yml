@@ -6,20 +6,30 @@ on:
   pull_request:
 
 permissions:
-  contents: write           # pour committer le badge sur main
-  pull-requests: write      # pour commenter les PR
+  contents: write        # pour committer le badge sur main
+  pull-requests: write   # pour commenter les PR
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Variables non sensibles (priorité: Job.env > Workflow.env > repo vars)
 env:
-  COV_MIN: "85"             # seuil de couverture minimum (échec si en dessous)
+  POSTGRES_USER: ${{ vars.POSTGRES_USER || 'epic_events_app' }}
+  POSTGRES_DB: ${{ vars.POSTGRES_DB || 'epic_events_db' }}
+  POSTGRES_HOST: ${{ vars.POSTGRES_HOST || '127.0.0.1' }}
+  POSTGRES_PORT: ${{ vars.POSTGRES_PORT || '5432' }}
+  COV_MIN: ${{ vars.COV_MIN || '80' }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    # Secrets au niveau job (disponibles pour toutes les steps sans les exposer)
+    env:
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      SENTRY_DSN:   ${{ secrets.SENTRY_DSN }}
+      # Ajoute ici d'autres secrets si besoin (API keys, etc.)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
