@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Sync env from lockfile
-        run: uv sync
+        run: uv sync --frozen
 
       - name: Run tests with coverage
         run: |
