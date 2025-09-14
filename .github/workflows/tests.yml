@@ -35,7 +35,7 @@ jobs:
           pip install -U pip
           pip install uv
           pip install coverage pytest "genbadge[coverage]"
-          pip install rich click rich-click
+          pip install rich click rich-click sentry_sdk
 
       - name: Sync env from lockfile
         run: uv sync --frozen
