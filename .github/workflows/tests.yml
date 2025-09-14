@@ -30,10 +30,11 @@ jobs:
           python-version: "3.13"
 
       # Si tu utilises uv (recommandé vu ton repo)
-      - name: Install uv
+      - name: Install uv & dependencies
         run: |
           pip install -U pip
           pip install uv
+          pip install coverage pytest "genbadge[coverage]"
 
       - name: Sync env from lockfile
         run: uv sync --frozen
