@@ -6,15 +6,15 @@ on:
   pull_request:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write           # pour committer le badge sur main
+  pull-requests: write      # pour commenter les PR
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  COV_MIN: "80"
+  COV_MIN: "85"             # seuil de couverture minimum (échec si en dessous)
 
 jobs:
   test:
@@ -24,23 +24,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Si tu utilises uv (recommandé vu ton repo)
+      - name: Install uv
+        run: |
+          pip install -U pip
+          pip install uv
+
       - name: Sync env from lockfile
         run: uv sync --frozen
 
+      # Exécution des tests AVEC coverage, sans pytest-cov
       - name: Run tests with coverage
         run: |
-          uv run coverage run -m pytest -q
-          uv run coverage report
-          uv run coverage xml -o coverage.xml
-          uv run coverage html
+          python -m coverage run -m pytest -q
+          python -m coverage report
+          python -m coverage xml -o coverage.xml
+          python -m coverage html -d htmlcov
 
+      # Génère un badge SVG à partir du coverage.xml (local, pas de tiers)
       - name: Install genbadge
-        run: uv add genbadge
+        run: pip install "genbadge[coverage]"
 
       - name: Generate coverage badge
         run: |
-          uv run genbadge coverage -i coverage.xml -o coverage.svg
+          genbadge coverage -i coverage.xml -o coverage.svg
 
+      # Échoue si la couverture passe sous le seuil COV_MIN
+        # (parse coverage.xml -> line-rate * 100)
       - name: Enforce coverage threshold
         id: covcheck
         run: |
@@ -55,7 +70,8 @@ jobs:
           if rate < min_rate:
               sys.exit(1)
           PY
-  
+
+      # Commente la PR avec le % de couverture (sticky comment)
       - name: Comment PR with coverage
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
@@ -86,6 +102,7 @@ jobs:
               });
             }
 
+      # Commit/Push du badge uniquement sur la branche main
       - name: Commit coverage badge
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
@@ -95,6 +112,7 @@ jobs:
           git commit -m "ci: update coverage badge" || echo "No badge changes"
           git push
 
+      # Conserve les rapports comme artefacts du run
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
