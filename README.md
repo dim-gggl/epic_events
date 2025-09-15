@@ -11,7 +11,7 @@
 
 <div align="center">
 
-# [🇫🇷 Français](#epic-events-crm-fr) • [🇬🇧 English](#-epic-events-crm---en)
+# [🇫🇷 Français](#epic-events-crm-fr) • [🇬🇧 English](#--1)
 
 </div>  
 
