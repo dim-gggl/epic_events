@@ -34,7 +34,7 @@ def _build_url():
     database_enc = urllib.parse.quote_plus(database)
     port = os.getenv("POSTGRES_PORT", "5432")
     # Note: host and port are not URL-encoded; they must remain literal
-    return f"postgresql+psycopg2://{user_enc}:{pwd}@{host}:{port}/{database_enc}"
+    return f"postgresql+psycopg://{user_enc}:{pwd}@{host}:{port}/{database_enc}"
 
 metadata = MetaData(schema="epic_events")
 

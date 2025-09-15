@@ -2,9 +2,9 @@ import importlib
 
 
 def test_build_url_from_env(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://u:p@h:5432/d")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@h:5432/d")
     cfg = importlib.import_module("src.data_access.config")
-    assert cfg._build_url() == "postgresql+psycopg2://u:p@h:5432/d"
+    assert cfg._build_url() == "postgresql+psycopg://u:p@h:5432/d"
 
 
 def test_build_url_composed_requires_password(monkeypatch):

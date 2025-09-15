@@ -113,7 +113,7 @@ POSTGRES_DB=epic_events_db
    
 Alternatively, you can set the `DATABASE_URL` environment variable:
 ```env
-export DATABASE_URL=postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
+export DATABASE_URL=postgresql+psycopg://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
 echo "DATABASE_URL="$DATABASE_URL >> .env
 ```
 
