@@ -1,8 +1,9 @@
-from email_validator import validate_email, EmailNotValidError
-from src.data_access.config import Session
-from src.crm.models import User
-from sqlalchemy import select
 import phonenumbers
+from email_validator import EmailNotValidError, validate_email
+from sqlalchemy import select
+
+from src.crm.models import User
+from src.data_access.config import Session
 
 # Constants
 USERNAME_MIN_LENGTH = 5
@@ -13,7 +14,7 @@ ROLE_MIN_ID = 1
 ROLE_MAX_ID = 3
 
 
-__all__ = ["is_valid_email", "is_valid_username", "is_valid_password", 
+__all__ = ["is_valid_email", "is_valid_username", "is_valid_password",
            "is_valid_role_id", "is_valid_phone"]
 
 
@@ -41,13 +42,13 @@ def _validate_username_uniqueness(username: str) -> bool:
 
 def is_valid_username(username: str) -> bool:
     """Validate that a username is valid and not already in use."""
-    return bool(_validate_username_length(username) and 
+    return bool(_validate_username_length(username) and
                 _validate_username_uniqueness(username))
 
 
 def _validate_password_length(password: str) -> bool:
     """Validate that a password is between min and max characters long."""
-    return bool(len(password) >= PASSWORD_MIN_LENGTH and 
+    return bool(len(password) >= PASSWORD_MIN_LENGTH and
                 len(password) <= PASSWORD_MAX_LENGTH)
 
 
@@ -66,7 +67,7 @@ def _validate_password_complexity(password: str) -> bool:
 
 def is_valid_password(password: str) -> bool:
     """Validate that a password meets all requirements."""
-    return bool(_validate_password_length(password) and 
+    return bool(_validate_password_length(password) and
                 _validate_password_complexity(password))
 
 

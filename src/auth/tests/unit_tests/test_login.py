@@ -1,7 +1,4 @@
-from datetime import datetime, timezone
-
-import pytest
-from sqlalchemy import select
+from datetime import UTC, datetime
 
 import src.auth.login as login_mod
 
@@ -44,7 +41,7 @@ def test_login_success(monkeypatch, dummy_view):
 
     monkeypatch.setattr(login_mod, "Session", lambda: DummySession(user))
     monkeypatch.setattr(login_mod, "verify_password", lambda p, h: True)
-    monkeypatch.setattr(login_mod, "generate_token", lambda uid, rid: ("acc", "raw", datetime.now(timezone.utc), b"h"))
+    monkeypatch.setattr(login_mod, "generate_token", lambda uid, rid: ("acc", "raw", datetime.now(UTC), b"h"))
 
     # Capture token storage and view outputs
     calls = {}
@@ -72,7 +69,10 @@ def test_login_unknown_username(monkeypatch, dummy_view):
     monkeypatch.setattr(login_mod.getpass, "getpass", lambda: "pwd")
 
     assert login_mod.login("unknown") is None
-    assert any("Unknown username" in msg for kind, msg in dummy_view.get_messages() if kind == "wrong")
+    assert any(
+        "Unknown username" in msg for kind, 
+        msg in dummy_view.get_messages() if kind == "wrong"
+    )
 
 
 def test_login_wrong_password(monkeypatch, dummy_view):

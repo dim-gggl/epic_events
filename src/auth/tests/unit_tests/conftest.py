@@ -1,11 +1,8 @@
+import importlib
 import os
 import sys
-import importlib
-import tempfile
-from types import SimpleNamespace
 
 import pytest
-
 
 # Ensure SECRET_KEY is present for any import-time usage in modules
 os.environ.setdefault("SECRET_KEY", "test-secret")

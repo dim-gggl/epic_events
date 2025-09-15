@@ -1,14 +1,14 @@
+import json
 import os
 import tempfile
-import json
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from datetime import UTC, datetime
+from typing import Any
 
 from src.views.views import MainView
 
 view = MainView()
 
-_auth_location: Optional[str] = None
+_auth_location: str | None = None
 
 
 def _get_auth_location() -> str:
@@ -38,9 +38,9 @@ def store_token(access_token: str, refresh_token: str, refresh_expiry: datetime,
         'refresh_expiry': refresh_expiry.isoformat(),
         'user_id': user_id,
         'role_id': role_id,
-        'stored_at': datetime.now(timezone.utc).isoformat()
+        'stored_at': datetime.now(UTC).isoformat()
     }
-    
+
     try:
         token_file = _get_auth_location()
         with open(token_file, 'w') as f:
@@ -52,7 +52,7 @@ def store_token(access_token: str, refresh_token: str, refresh_expiry: datetime,
         raise
 
 
-def get_stored_token() -> Optional[Dict[str, Any]]:
+def get_stored_token() -> dict[str, Any] | None:
     """
     Retrieve stored token data from temporary file.
     
@@ -61,24 +61,24 @@ def get_stored_token() -> Optional[Dict[str, Any]]:
     """
     token_file_path = _get_auth_location()
     if not os.path.exists(token_file_path):
-        os.makedirs(os.path.dirname(token_file_path), exist_ok=True)            
+        os.makedirs(os.path.dirname(token_file_path), exist_ok=True)
         return None
-    
+
     try:
-        with open(token_file_path, 'r') as f:
+        with open(token_file_path) as f:
             content = f.read().strip()
             if not content:
                 # File is empty, treat as no token
                 cleanup_token_file()
                 return None
             token_data = json.loads(content)
-        
+
         # Convert refresh_expiry back to datetime
         if 'refresh_expiry' in token_data:
             token_data['refresh_expiry'] = datetime.fromisoformat(token_data['refresh_expiry'])
         if 'stored_at' in token_data:
             token_data['stored_at'] = datetime.fromisoformat(token_data['stored_at'])
-            
+
         return token_data
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
@@ -91,7 +91,7 @@ def get_stored_token() -> Optional[Dict[str, Any]]:
         raise
 
 
-def get_access_token() -> Optional[str]:
+def get_access_token() -> str | None:
     """
     Get the stored access token.
     
@@ -102,7 +102,7 @@ def get_access_token() -> Optional[str]:
     return token_data.get('access_token') if token_data else None
 
 
-def get_user_info_from_token() -> Optional[Dict[str, Any]]:
+def get_user_info_from_token() -> dict[str, Any] | None:
     """
     Get stored user information.
     
@@ -137,7 +137,7 @@ def update_access_token(new_access_token: str) -> None:
     token_data = get_stored_token()
     if token_data:
         token_data['access_token'] = new_access_token
-        token_data['stored_at'] = datetime.now(timezone.utc).isoformat()
+        token_data['stored_at'] = datetime.now(UTC).isoformat()
         # Ensure datetime fields are serialized correctly
         if isinstance(token_data.get('refresh_expiry'), datetime):
             token_data['refresh_expiry'] = token_data['refresh_expiry'].isoformat()

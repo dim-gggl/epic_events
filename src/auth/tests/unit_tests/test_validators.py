@@ -2,10 +2,10 @@ import pytest
 
 from src.auth.validators import (
     is_valid_email,
-    is_valid_username,
     is_valid_password,
-    is_valid_role_id,
     is_valid_phone,
+    is_valid_role_id,
+    is_valid_username,
 )
 
 

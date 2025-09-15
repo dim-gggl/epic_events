@@ -1,8 +1,9 @@
-from src.data_access.repository import client_repository, contract_repository
-from src.data_access.config import Session
+
+from src.auth.permissions import login_required, require_permission
+from src.auth.policy import enforce_any_or_own
 from src.crm.models import Client
-from typing import List, Optional
-from src.auth.permissions import require_permission, login_required
+from src.data_access.config import Session
+from src.data_access.repository import client_repository, contract_repository
 
 
 class ClientLogic:
@@ -16,7 +17,7 @@ class ClientLogic:
             return client
 
     @login_required
-    def get_clients(self, access_token: str, user_id: int, filtered: bool) -> List[Client]:
+    def get_clients(self, access_token: str, user_id: int, filtered: bool) -> list[Client]:
         with Session() as session:
             if filtered:
                 return client_repository.find_by(session, commercial_id=user_id)
@@ -24,17 +25,22 @@ class ClientLogic:
                 return client_repository.get_all(session)
 
     @require_permission("client:view")
-    def get_client_by_id(self, access_token: str, client_id: int) -> Optional[Client]:
+    def get_client_by_id(self, access_token: str, client_id: int) -> Client | None:
         with Session() as session:
             return client_repository.get_by_id(client_id, session)
 
-    @require_permission("client:update")
-    def update_client(self, access_token: str, user_id: int, client_id: int, client_data: dict) -> Optional[Client]:
+    @login_required
+    def update_client(self,
+                      access_token: str,
+                      user_id: int,
+                      client_id: int,
+                      client_data: dict) -> Client | None:
         with Session() as session:
             client = client_repository.get_by_id(client_id, session)
             if not client:
                 return
-            
+            # Enforce any-or-own semantics according to role permissions
+            enforce_any_or_own(access_token, "client", "update", client.commercial_id)
             updated_client = client_repository.update(client_id, client_data, session)
             session.commit()
             if updated_client:

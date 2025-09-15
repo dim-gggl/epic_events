@@ -1,6 +1,4 @@
-from datetime import datetime, timezone
 
-import pytest
 
 import src.auth.logout as logout_mod
 
@@ -58,6 +56,8 @@ def test_logout_no_active_session(monkeypatch, dummy_view):
 
     logout_mod.logout()
 
-    assert any("No active session" in msg for kind, msg in dummy_view.get_messages() if kind == "wrong")
+    assert any(
+        "No active session" in msg for kind, msg in dummy_view.get_messages() if kind == "wrong"
+    )
 
 

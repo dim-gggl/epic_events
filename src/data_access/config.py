@@ -1,7 +1,9 @@
-import os, urllib.parse
 import logging
+import os
+import urllib.parse
+
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
@@ -13,7 +15,7 @@ def _build_url():
     url = os.getenv("DATABASE_URL")
     if url:
         return url
-    
+
     # Check for required environment variables
     password = os.getenv("POSTGRES_PASSWORD")
     if password is None:
@@ -22,7 +24,7 @@ def _build_url():
             "Please create a .env file with your database configuration. "
             "See .env.example for reference."
         )
-    
+
     # Percent-encode credentials to avoid DSN parsing issues
     pwd = urllib.parse.quote_plus(password)
     user = os.getenv("POSTGRES_USER", "epic_events_app")

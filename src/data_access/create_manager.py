@@ -1,16 +1,15 @@
+import ctypes
 import os
 import sys
-import ctypes
-from typing import Optional
 
 from sqlalchemy import select
 
-from src.data_access.config import Session
-from src.auth.validators import is_valid_username, is_valid_email
 from src.auth.hashing import hash_password
-from src.crm.models import User, Role
-from src.auth.utils import _prompt_password
 from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS
+from src.auth.utils import _prompt_password
+from src.auth.validators import is_valid_email, is_valid_username
+from src.crm.models import PermissionModel, Role, User
+from src.data_access.config import Session
 
 
 def _ensure_root() -> bool:
@@ -39,9 +38,9 @@ def _ensure_root() -> bool:
         return True
 
 
-def init_manager(username: Optional[str]=None, 
-                full_name: Optional[str]=None, 
-                email: Optional[str]=None) -> None:
+def init_manager(username: str | None=None,
+                full_name: str | None=None,
+                email: str | None=None) -> None:
     """Create a 'management' user. Only callable as root."""
     is_root = _ensure_root()
     if is_root is False:
@@ -59,7 +58,7 @@ def init_manager(username: Optional[str]=None,
                       "and should not already be in use.")
                 print("Try again later.")
                 sys.exit(1)
-    
+
     if not full_name:
         full_name = input("Full name: ").strip()
         choice = input("Is this correct? (y/n): ").strip()
@@ -89,9 +88,23 @@ def init_manager(username: Optional[str]=None,
     with Session() as session:
         role = session.scalar(select(Role).where(Role.name == "management"))
         if not role:
-            role = Role(name="management", permissions=DEFAULT_ROLE_PERMISSIONS.get("management", []))
+            role = Role(name="management")
             session.add(role)
             session.flush()
+
+        # Ensure management permissions both in array and normalized tables
+        mgmt_perms = DEFAULT_ROLE_PERMISSIONS.get("management", [])
+        role.permissions = list(mgmt_perms)
+        # Create missing PermissionModel rows and set association
+        perm_rows = []
+        for name in mgmt_perms:
+            perm = session.scalar(select(PermissionModel).where(PermissionModel.name == name))
+            if not perm:
+                perm = PermissionModel(name=name)
+                session.add(perm)
+                session.flush()
+            perm_rows.append(perm)
+        role.permissions_rel = perm_rows
 
         existing_email = session.scalar(select(User).where(User.email == email))
         if existing_email:

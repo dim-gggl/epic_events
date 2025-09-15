@@ -1,21 +1,37 @@
-from sqlalchemy import inspect, select, MetaData
+from sqlalchemy import MetaData, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
+import sentry_sdk
 
-from src.data_access.config import engine, Session, metadata
-from src.crm.models import Role, User, Client, Company, Contract, Event
 from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
+from src.crm.models import PermissionModel, Role
+from src.data_access.config import Session, engine, metadata
 
+
+def _ensure_permission(session: Session, name: str) -> PermissionModel:
+    perm = session.query(PermissionModel).filter(PermissionModel.name == name).first()
+    if not perm:
+        perm = PermissionModel(name=name)
+        session.add(perm)
+        session.flush()
+    return perm
 
 
 def _seed_roles(session: Session) -> None:
+    """Seed roles and synchronize both normalized and array-based permissions."""
     for role_name in ORDERED_DEFAULT_ROLES:
         perms = DEFAULT_ROLE_PERMISSIONS.get(role_name, [])
         role = session.query(Role).filter(Role.name == role_name).first()
         if role is None:
-            role = Role(name=role_name, permissions=perms)
+            role = Role(name=role_name)
             session.add(role)
-        else:
-            role.permissions = perms
+            session.flush()
+
+        # Sync array-based permissions for compatibility
+        role.permissions = list(perms)
+
+        # Sync normalized permissions
+        perm_models = [_ensure_permission(session, p) for p in perms]
+        role.permissions_rel = perm_models
     session.flush()
 
 def _database_has_any_data() -> bool:
@@ -45,25 +61,23 @@ def _database_has_any_data() -> bool:
     return False
 
 
-def init_db(*, force: bool = False) -> None:
+def init_db() -> None:
     """
-    Initialize schema and seed roles safely.
-    - Abort if any data already exists (unless force=True).
-    - Idempotent on schema creation (create_all).
+    Ensure the database schema exists and seed roles.
+
+    Always creates any missing tables (idempotent), even if data already exists.
     """
-    if _database_has_any_data() and not force:
-        raise RuntimeError(
-            "Database already contains data; aborting init. Use force=True to override."
-        )
+    # Always ensure all tables defined on metadata exist, without altering existing ones.
+    metadata.create_all(engine)
 
     session = Session()
     try:
-        # idempotent: only creates missing tables
-        metadata.create_all(engine)  
         _seed_roles(session)
         session.commit()
-    except Exception:
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
         session.rollback()
         raise
     finally:
-        session.close()
+        session.flush()
+        session.commit()

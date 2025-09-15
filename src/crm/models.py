@@ -1,47 +1,35 @@
-from enum import StrEnum
-from typing import Union
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, DateTime, Numeric, Boolean,
-    CheckConstraint, Text, Index, text
+    ARRAY,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    Text,
+    text,
 )
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.sql import func
-from sqlalchemy import Numeric, ARRAY
 from sqlalchemy.ext.mutable import MutableList
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
 
 from src.data_access.config import Base
 
+## Note: permission codes are managed via strings (DB + constants in auth.permissions).
 
-class Permission(StrEnum):
-    LIST_USERS = "user:list"
-    VIEW_USER = "user:view"
-    CREATE_USER = "user:create"
-    UPDATE_USER = "user:update"
-    DELETE_USER = "user:delete"
-    LIST_ROLES = "role:list"
-    VIEW_ROLE = "role:view"
-    CREATE_ROLE = "role:create"
-    UPDATE_ROLE = "role:update"
-    DELETE_ROLE = "role:delete"
-    ASSIGN_ROLE = "role:assign"
-    LIST_CLIENTS = "client:list"
-    VIEW_CLIENT = "client:view"
-    CREATE_CLIENT = "client:create"
-    UPDATE_CLIENT = "client:update"
-    DELETE_CLIENT = "client:delete"
-    LIST_CONTRACTS = "contract:list"
-    VIEW_CONTRACT = "contract:view"
-    CREATE_CONTRACT = "contract:create"
-    UPDATE_CONTRACT = "contract:update"
-    DELETE_CONTRACT = "contract:delete"
-    LIST_EVENTS = "event:list"
-    VIEW_EVENT = "event:view"
-    CREATE_EVENT = "event:create"
-    UPDATE_EVENT = "event:update"
-    DELETE_EVENT = "event:delete"
-
-
-PermLike = str | Permission
+# Association table for Role <-> PermissionModel
+# Placed before Role class so it is available when the mapper resolves
+# the `secondary` argument below.
+role_permission = Table(
+    "role_permission",
+    Base.metadata,
+    Column("role_id", Integer, ForeignKey("role.id", ondelete="CASCADE"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permission.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Role(Base):
@@ -49,11 +37,20 @@ class Role(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(32), unique=True, nullable=False)
     users = relationship("User", back_populates="role", passive_deletes=True)
+    # Deprecated: array-based permissions kept for compatibility during migration.
     permissions: Mapped[list[str]] = mapped_column(
         MutableList.as_mutable(ARRAY(String)),
         default=list,
         server_default=text("'{}'::text[]"),
         nullable=False,
+    )
+
+    # Normalized permissions through association table (see PermissionModel below)
+    permissions_rel = relationship(
+        "PermissionModel",
+        secondary=role_permission,
+        lazy="joined",
+        passive_deletes=True,
     )
 
     def __repr__(self):
@@ -78,22 +75,33 @@ class User(Base):
     )
     role = relationship("Role", back_populates="users")
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        nullable=False)
+    updated_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        onupdate=func.now(), 
+                        nullable=False)
 
     is_active = Column(Boolean, nullable=False, server_default="true")
     last_login = Column(DateTime(timezone=True), nullable=True)
 
-    managed_clients = relationship("Client", back_populates="commercial", passive_deletes=True)
-    managed_contracts = relationship("Contract", back_populates="commercial", passive_deletes=True)
-    supported_events = relationship("Event", back_populates="support_contact", passive_deletes=True)
+    managed_clients = relationship("Client", 
+                                   back_populates="commercial", 
+                                   passive_deletes=True)
+    managed_contracts = relationship("Contract", 
+                                      back_populates="commercial", 
+                                      passive_deletes=True)
+    supported_events = relationship("Event", 
+                                    back_populates="support_contact", 
+                                    passive_deletes=True)
 
     refresh_token_hash = Column(String(255), nullable=True)
 
     def __repr__(self):
         role_name = self.role.name if getattr(self, "role", None) else "Unknown"
         return f"<User {role_name} (id={self.id}): {self.username}>"
-    
+
     def __str__(self):
         return self.full_name
 
@@ -102,8 +110,13 @@ class Company(Base):
     __tablename__ = "company"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(128), unique=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        nullable=False)
+    updated_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        onupdate=func.now(), 
+                        nullable=False)
 
     clients = relationship("Client", back_populates="company", passive_deletes=True)
 
@@ -124,14 +137,19 @@ class Client(Base):
     first_contact_date = Column(DateTime(timezone=True), nullable=False)
     last_contact_date  = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        nullable=False)
+    updated_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        onupdate=func.now(), 
+                        nullable=False)
 
     def __repr__(self):
         return f"<Client (id={self.id}): {self.full_name} " \
                f"commercial_id={self.commercial_id} " \
                f"company_id={self.company_id}>"
-    
+
     def __str__(self):
         company_name = self.company.name if getattr(self, "company", None) else "No company"
         return f"{self.full_name} ({company_name})"
@@ -153,11 +171,16 @@ class Contract(Base):
     is_signed = Column(Boolean, nullable=False, server_default="false")
     is_fully_paid = Column(Boolean, nullable=False, server_default="false")
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        nullable=False)
+    updated_at = Column(DateTime(timezone=True), 
+                        server_default=func.now(), 
+                        onupdate=func.now(), 
+                        nullable=False)
 
     events = relationship("Event", back_populates="contract", uselist=True, passive_deletes=True)
-    
+
 
     __table_args__ = (
         CheckConstraint("remaining_amount >= 0"),
@@ -167,7 +190,7 @@ class Contract(Base):
         return f"<Contract (id={self.id}): " \
                f"client_id={self.client_id} " \
                f"commercial_id={self.commercial_id}>"
-    
+
     def __str__(self):
         return f"{self.client.full_name} - {self.total_amount}€"
 
@@ -199,11 +222,23 @@ class Event(Base):
         Index("ix_event_start_date", "start_date"),
         Index("ix_event_support", "support_contact_id"),
     )
-    
+
     def __repr__(self):
         return f"<Event (id={self.id} " \
                f"contract_id={self.contract_id} " \
                f"support_contact_id={self.support_contact_id})>"
-    
+
     def __str__(self):
         return f"{self.title} ({self.start_date} - {self.end_date})"
+
+
+# Normalized permission model and association table
+
+
+class PermissionModel(Base):
+    __tablename__ = "permission"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(64), unique=True, nullable=False, index=True)
+
+    def __repr__(self):
+        return f"<Permission name={self.name}>"

@@ -1,10 +1,9 @@
 import os
 
 from rich.console import Console
-from src.views.views import MainView
 
 from src.auth.validators import is_valid_password
-
+from src.views.views import MainView
 
 view = MainView()
 console = Console()

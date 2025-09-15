@@ -1,4 +1,3 @@
-import importlib
 
 import pytest
 
@@ -57,7 +56,7 @@ def test_prompt_password_invalid_then_retry(monkeypatch, dummy_view):
             return self.values.pop(0)
 
     # Sequence: invalid password (ignored), then valid pwd and confirm
-    fake_console = FakeConsole(["weak", "Strong1Pass", "Strong1Pass"]) 
+    fake_console = FakeConsole(["weak", "Strong1Pass", "Strong1Pass"])
     def validate(p):
         return p != "weak"
 

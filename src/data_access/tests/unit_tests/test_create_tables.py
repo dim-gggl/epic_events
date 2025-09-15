@@ -1,4 +1,3 @@
-import types
 import pytest
 
 import src.data_access.create_tables as ct

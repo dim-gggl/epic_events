@@ -1,10 +1,7 @@
 import os
 import sys
-import importlib
-from types import SimpleNamespace
 
 import pytest
-
 
 # Ensure SECRET_KEY for any import-time usage in modules relying on it
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -52,8 +49,8 @@ def relax_permissions(monkeypatch):
     import src.auth.permissions as perms
     # Allow all permissions and bypass token verification by default
     monkeypatch.setattr(perms, "has_permission", lambda tok, perm: True)
-    monkeypatch.setattr(perms, 
-                        "verify_access_token", 
+    monkeypatch.setattr(perms,
+                        "verify_access_token",
                         lambda tok: {"sub": "1", "role_id": "1"})
     yield
 

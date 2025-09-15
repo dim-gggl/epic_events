@@ -1,5 +1,7 @@
-import sentry_sdk
 import os
+
+import sentry_sdk
+
 
 def init_sentry():
     sentry_sdk.init(

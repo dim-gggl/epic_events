@@ -18,21 +18,21 @@ def test_get_user_id_and_role_missing_token():
 
 def test_has_permission_true_and_false(monkeypatch):
     # Management role (1) should have user:create
-    monkeypatch.setattr(perms, 
-                        "verify_access_token", 
+    monkeypatch.setattr(perms,
+                        "verify_access_token",
                         lambda t: {"sub": "1", "role_id": "1"})
     assert perms.has_permission("tok", "user:create") is True
 
     # Support role (3) should not have client:create
-    monkeypatch.setattr(perms, 
-                        "verify_access_token", 
+    monkeypatch.setattr(perms,
+                        "verify_access_token",
                         lambda t: {"sub": "2", "role_id": "3"})
     assert perms.has_permission("tok", "client:create") is False
 
 
 def test_login_required_decorator_with_kwarg(monkeypatch):
-    monkeypatch.setattr(perms, 
-                        "verify_access_token", 
+    monkeypatch.setattr(perms,
+                        "verify_access_token",
                         lambda t: {"sub": "5", "role_id": "2"})
 
     @perms.login_required

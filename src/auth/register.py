@@ -1,5 +1,6 @@
-from src.business_logic.user_logic import user_logic
 from src.auth.permissions import require_permission
+from src.business_logic.user_logic import user_logic
+
 
 @require_permission("user:create")
 def register_user(access_token: str, username: str, full_name: str, email: str, password: str, role_id: int):

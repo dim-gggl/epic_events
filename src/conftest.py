@@ -1,7 +1,6 @@
 import os
 import sys
 
-
 # Ensure SECRET_KEY for tests that rely on it
 os.environ.setdefault("SECRET_KEY", "test-secret")
 

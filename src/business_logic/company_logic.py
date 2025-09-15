@@ -1,10 +1,10 @@
-from typing import List, Optional
+
 from sqlalchemy.orm import joinedload
 
-from src.data_access.repository import company_repository
-from src.data_access.config import Session
+from src.auth.permissions import login_required, require_permission
 from src.crm.models import Company
-from src.auth.permissions import require_permission, login_required
+from src.data_access.config import Session
+from src.data_access.repository import company_repository
 
 
 class CompanyLogic:
@@ -22,7 +22,7 @@ class CompanyLogic:
 
 
     @login_required
-    def get_companies(self, access_token: str) -> List[Company]:
+    def get_companies(self, access_token: str) -> list[Company]:
         """
         Get all companies.
         Only commercial and management roles can list companies.
@@ -31,7 +31,7 @@ class CompanyLogic:
             return company_repository.get_all(session)
 
     @require_permission("company:view")
-    def get_company_by_id(self, access_token: str, company_id: int) -> Optional[Company]:
+    def get_company_by_id(self, access_token: str, company_id: int) -> Company | None:
         """
         Get a company by its ID.
         Requires permission: company:view
@@ -46,7 +46,10 @@ class CompanyLogic:
             )
 
     @require_permission("company:update")
-    def update_company(self, access_token: str, company_id: int, company_data: dict) -> Optional[Company]:
+    def update_company(self,
+                       access_token: str,
+                       company_id: int,
+                       company_data: dict) -> Company | None:
         """
         Update a company.
         Only management role can update companies.
@@ -55,7 +58,7 @@ class CompanyLogic:
             company = company_repository.get_by_id(company_id, session)
             if not company:
                 return None
-            
+
             updated_company = company_repository.update(company_id, company_data, session)
             session.commit()
             if updated_company:

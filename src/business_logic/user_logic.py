@@ -1,9 +1,16 @@
-from src.data_access.repository import user_repository
-from src.data_access.config import Session
-from src.crm.models import User
-from src.auth.permissions import has_permission_for_user, require_permission
+
 from src.auth.hashing import hash_password
-from typing import List, Optional
+from src.auth.permissions import (
+    get_user_id_and_role_from_token,
+    has_permission,
+    has_permission_for_user,
+    login_required,
+    require_permission,
+)
+from src.crm.models import User
+from src.data_access.config import Session
+from src.data_access.repository import user_repository
+
 
 class UserLogic:
     @require_permission("user:create")
@@ -17,12 +24,12 @@ class UserLogic:
             return user
 
     @require_permission("user:list")
-    def get_users(self, access_token: str) -> List[User]:
+    def get_users(self, access_token: str) -> list[User]:
         with Session() as session:
             return user_repository.get_all(session)
 
     @require_permission("user:view")
-    def get_user_by_id(self, access_token: str, user_id: int) -> Optional[User]:
+    def get_user_by_id(self, access_token: str, user_id: int) -> User | None:
         with Session() as session:
             user = user_repository.get_by_id(user_id, session)
             if user:
@@ -32,14 +39,17 @@ class UserLogic:
                 _ = user.supported_events
             return user
 
-    @require_permission("user:update")
-    def update_user(self, access_token: str, user_id: int, user_data: dict) -> Optional[User]:
+    @login_required
+    def update_user(self, access_token: str, user_id: int, user_data: dict) -> User | None:
         with Session() as session:
             user = user_repository.get_by_id(user_id, session)
             if not user:
                 return None
 
-            if not has_permission_for_user(access_token, "update", user, user_id):
+            subject_user_id, _ = get_user_id_and_role_from_token(access_token)
+            # Allow if role has global permission or if policy authorizes (self/any)
+            if not (has_permission(access_token, "user:update") or
+                    has_permission_for_user(access_token, "update", user, subject_user_id)):
                 raise PermissionError("You don't have permission to update this user.")
 
             updated_user = user_repository.update(user_id, user_data, session)

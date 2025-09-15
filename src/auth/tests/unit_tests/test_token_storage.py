@@ -1,12 +1,11 @@
-import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from src.auth.jwt import token_storage as ts
 
 
 def test_store_and_read_token(isolated_token_file, dummy_view):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts.store_token("acc", "raw", now + timedelta(days=1), 5, 2)
 
     data = ts.get_stored_token()
@@ -20,7 +19,7 @@ def test_store_and_read_token(isolated_token_file, dummy_view):
 
 
 def test_get_access_and_user_info(isolated_token_file):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts.store_token("token123", "r", now + timedelta(days=1), 1, 3)
 
     assert ts.get_access_token() == "token123"
@@ -28,14 +27,14 @@ def test_get_access_and_user_info(isolated_token_file):
 
 
 def test_update_access_token(isolated_token_file):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts.store_token("old", "r", now + timedelta(days=1), 1, 1)
     ts.update_access_token("new")
     assert ts.get_access_token() == "new"
 
 
 def test_cleanup_token_file(isolated_token_file, dummy_view):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ts.store_token("a", "b", now + timedelta(days=1), 1, 1)
     assert os.path.exists(isolated_token_file)
     ts.cleanup_token_file()

@@ -1,13 +1,16 @@
 import datetime
-import jwt
-import bcrypt
 import secrets
+
+import bcrypt
+import jwt
 
 from .config import (
     ACCESS_TOKEN_LIFETIME_MINUTES,
     REFRESH_TOKEN_LIFETIME_DAYS,
-    SECRET_KEY,
+    get_current_kid,
+    get_secret_by_kid,
 )
+
 
 def generate_token(
     user_id: int,
@@ -27,10 +30,9 @@ def generate_token(
         - refresh_exp: Expiration datetime of refresh token
         - refresh_hash: Hashed refresh token (to store in database)
     """
-    if not SECRET_KEY:
-        raise ValueError("SECRET_KEY must be configured")
-    
-    expiration = datetime.datetime.now(datetime.timezone.utc) + \
+    secret = get_secret_by_kid(get_current_kid())
+
+    expiration = datetime.datetime.now(datetime.UTC) + \
         datetime.timedelta(minutes=ACCESS_TOKEN_LIFETIME_MINUTES)
     access_payload = {
         "sub": str(user_id),            # We use the user id as the subject
@@ -39,16 +41,19 @@ def generate_token(
     }
 
     # Generate the access token and the raw refresh token
-    access_token = jwt.encode(access_payload, 
-                              SECRET_KEY, 
-                              algorithm="HS256")
+    access_token = jwt.encode(
+        access_payload,
+        secret,
+        algorithm="HS256",
+        headers={"kid": get_current_kid()},
+    )
     raw_refresh = secrets.token_urlsafe(32)
 
     # Hash the refresh token
-    refresh_hash = bcrypt.hashpw(raw_refresh.encode('utf-8'), 
+    refresh_hash = bcrypt.hashpw(raw_refresh.encode('utf-8'),
                                  bcrypt.gensalt())
 
     # Compute the expiration date of the refresh token
-    refresh_exp = datetime.datetime.now(datetime.timezone.utc) + \
+    refresh_exp = datetime.datetime.now(datetime.UTC) + \
         datetime.timedelta(days=REFRESH_TOKEN_LIFETIME_DAYS)
     return access_token, raw_refresh, refresh_exp, refresh_hash

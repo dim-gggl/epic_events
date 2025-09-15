@@ -17,6 +17,20 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "rich>=14.1.0",
     "rich-click>=1.8.9",
+    "ruff>=0.13.0",
     "sentry-sdk>=2.37.0",
     "sqlalchemy>=2.0.43",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+force-single-line = false
