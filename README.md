@@ -52,24 +52,20 @@ Un CRM en ligne de commande, moderne et robuste: authentification JWT, permissio
 
 1) Prérequis: PostgreSQL opérationnel + fichier `.env`. Voir l’exemple `.env.example` et la page **[INSTALLATION](./INSTALLATION.md)**.
 
-2) Créez et activez un environnement Python, puis installez le projet et ses dépendances:
+Ici, nous considérerons que votre environnement virtuel python est prêt et activé. 
 
-```bash
-uv venv && source .venv/bin/activate                     # ou python -m venv .venv
-uv pip install -e .                                      # ou python -m pip install -e .
-```
-
-3) Initialisez la base (tables + seed des rôles/permissions si la base est vide):
+2) Initialisez la base (tables + seed des rôles/permissions):
 
 ```bash
 python epic_events.py db-create
 ```
 
-4) Créez un compte manager (droits root requis pour des raisons de sécurité):
+4) Créez un compte manager (droits admin ou root requis pour des raisons de sécurité):
 
 ```bash
 sudo python epic_events.py manager-create -u admin -n "Admin User" -e admin@ex.com
 ```
+`sudo` vous demandera d'entrer votre mot de passe admin, puis epic-events vous dermandera d'entrer le mot de passe de l'utilisateur manager en cours d'inscription (tous les autres paramètres ayant été passé en arguments en ligne de commande).``
 
 5) Connectez-vous (le mot de passe est saisi en mode masqué, jamais en clair):
 
@@ -77,19 +73,21 @@ sudo python epic_events.py manager-create -u admin -n "Admin User" -e admin@ex.c
 python epic_events.py login -u admin
 ```
 
-Astuce: définissez un alias pratique:
+Astuce: À ce stade, nous vous recommandons de définir un alias pratique:
 
 ```bash
-alias epic-events="python epic_events.py"
+alias epev="python epic_events.py"
 ```
 
 ## <div align="center"> UTILISATION
 
-Affichez l’aide stylisée avec logo:
+Affichez le menu d'aide:
 
 ```bash
-epic-events help
+epev help
+# ou python epic_events.py help
 ```
+Vous devriez voir la liste des principale commandes :
 
 <img src="src/media/help_menu.svg" alt="Help menu" />
 
@@ -105,37 +103,37 @@ Exemples rapides:
 
 ```bash
 # Lister les clients (vue stylisée); ajouter
-epic-events client list
+epev client list
 ```
 Vous devriez voir quelque chose comme :
 ![](./src/media/epic-ev-clients.svg)
 
 ```bash
 # Consulter un client
-epic-events client view 8
+epev client view 8
 ```
 Et maintenant l'écran affiche les détails d'un client de cette façon :
 ![](./src/media/epic-ev-client.svg)
 ```bash
 # Créer un contrat (les options manquantes sont demandées de manière interactive)
-epic-events contract create --client-id 10 --commercial-id 5 \
+epev contract create --client-id 10 --commercial-id 5 \
   --total-amount 1200 --remaining-amount 200 --is-signed true
 
 # Créer un événement (dates acceptent dd/mm/yyyy ou dd/mm/yyyy HH:MM)
-epic-events event create --contract-id 1 --title "Salon B2B" \
+epev event create --contract-id 1 --title "Salon B2B" \
   --full-address "42 Rue de Paris, 75000 Paris" \
   --start-date 01/11/2025 --end-date "02/11/2025 18:00" \
   --participant-count 200
 
 # Affecter un support à un événement
-epic-events event assign_support 7 23
+epev event assign_support 7 23
 
 # Administration des rôles
-epic-events role list
-epic-events role view 2
-epic-events role grant 2 "client:update:own"
-epic-events role revoke 2 "client:update:own"
-epic-events role perms
+epev role list
+epev role view 2
+epev role grant 2 "client:update:own"
+epev role revoke 2 "client:update:own"
+epev role perms
 ```
 
 Les champs non fournis en ligne de commande sont saisis en mode interactif avec validations (email, téléphone, mots de passe, rôles, montants, dates…). Aucun mot de passe n’est accepté en argument CLI.
@@ -260,7 +258,7 @@ python epic_events.py login -u admin
 Tip: set a convenient alias:
 
 ```bash
-alias epic-events="python epic_events.py"
+alias epev="python epic_events.py"
 ```
 
 ## <div align="center"> USAGE
@@ -268,7 +266,7 @@ alias epic-events="python epic_events.py"
 Display the styled help with logo:
 
 ```bash
-epic-events help
+epev help
 ```
 
 ![](./src/media/help_menu.svg)
@@ -285,7 +283,7 @@ Quick examples:
 
 ```bash
 # List clients (styled view)
-epic-events client list
+epev client list
 ```
 
 You should see something like:
@@ -293,7 +291,7 @@ You should see something like:
 
 ```bash
 # View a client
-epic-events client view 8
+epev client view 8
 ```
 
 Now the screen shows the client details like this:
@@ -301,24 +299,24 @@ Now the screen shows the client details like this:
 
 ```bash
 # Create a contract (missing options are prompted interactively)
-epic-events contract create --client-id 10 --commercial-id 5 \
+epev contract create --client-id 10 --commercial-id 5 \
   --total-amount 1200 --remaining-amount 200 --is-signed true
 
 # Create an event (dates accept dd/mm/yyyy or dd/mm/yyyy HH:MM)
-epic-events event create --contract-id 1 --title "B2B Fair" \
+epev event create --contract-id 1 --title "B2B Fair" \
   --full-address "42 Rue de Paris, 75000 Paris" \
   --start-date 01/11/2025 --end-date "02/11/2025 18:00" \
   --participant-count 200
 
 # Assign a support user to an event
-epic-events event assign_support 7 23
+epev event assign_support 7 23
 
 # Role administration
-epic-events role list
-epic-events role view 2
-epic-events role grant 2 "client:update:own"
-epic-events role revoke 2 "client:update:own"
-epic-events role perms
+epev role list
+epev role view 2
+epev role grant 2 "client:update:own"
+epev role revoke 2 "client:update:own"
+epev role perms
 ```
 
 Fields not provided on the command line are entered interactively with validation (email, phone, passwords, roles, amounts, dates…). No password is ever accepted as a CLI argument.
@@ -377,11 +375,11 @@ pytest -q
 
 ## <div align="center"> TROUBLESHOOTING
 
-* “Please login first”: no active access token → `epic-events login`
-* “Session missing or expired”: refresh expired/missing → `epic-events login` or `epic-events refresh`
-* “You don’t have permission …”: check your role/permissions → `epic-events role view <id>` then `role grant`
+* “Please login first”: no active access token → `epev login`
+* “Session missing or expired”: refresh expired/missing → `epev login` or `epev refresh`
+* “You don’t have permission …”: check your role/permissions → `epev role view <id>` then `role grant`
 * “SECRET\_KEY is not set”: set the `SECRET_KEY` variable (and optionally `JWT_KID`, `SECRET_KEY_PREV`, `JWT_KID_PREV`)
-* DB issues: check `.env`, the PostgreSQL service, then run `epic-events db-create`
+* DB issues: check `.env`, the PostgreSQL service, then run `epev db-create`
 
 ## <div align="center"> PROJECT STRUCTURE
 

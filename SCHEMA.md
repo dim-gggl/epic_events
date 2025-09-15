@@ -1,0 +1,1 @@
+![](./src/media/epic_events_schema.svg)
