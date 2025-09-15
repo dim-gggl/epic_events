@@ -628,13 +628,19 @@ class MainController:
         except Exception as e:
             view.wrong_message(f"An unexpected error occurred: {e}")
 
-    def list_contracts(self, access_token: str, filtered: bool):
+    def list_contracts(self, access_token: str, filtered: bool, unsigned: bool = False, unpaid: bool = False):
         try:
             user_info = self._get_session_user_or_warn()
             if not user_info:
                 return
             user_id = user_info['user_id']
-            contracts = contract_logic.get_contracts(access_token, user_id, filtered)
+            contracts = contract_logic.get_contracts(
+                access_token,
+                user_id,
+                filtered,
+                unsigned=unsigned,
+                unpaid=unpaid,
+            )
             view.display_contracts(contracts)
         except (PermissionError, ValueError) as e:
             view.wrong_message(str(e))

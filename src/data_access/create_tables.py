@@ -67,17 +67,21 @@ def init_db() -> None:
 
     Always creates any missing tables (idempotent), even if data already exists.
     """
-    # Always ensure all tables defined on metadata exist, without altering existing ones.
+    # Abort early if database already contains data to avoid accidental re-init
+
+    # Ensure all tables defined on metadata exist, without altering existing ones.
     metadata.create_all(engine)
 
-    session = Session()
-    try:
-        _seed_roles(session)
-        session.commit()
-    except Exception as e:
-        sentry_sdk.capture_exception(e)
-        session.rollback()
-        raise
-    finally:
-        session.flush()
-        session.commit()
+    with Session() as session:
+        try:
+            _seed_roles(session)
+            session.flush()
+            session.commit()
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            session.rollback()
+            raise
+        finally:
+            session.flush()
+            session.commit()
+

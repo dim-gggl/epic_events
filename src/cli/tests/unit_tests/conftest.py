@@ -1,7 +1,7 @@
 import os
 import sys
-import pytest
 
+import pytest
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 

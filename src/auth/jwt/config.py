@@ -1,11 +1,7 @@
 import os
 
-from dotenv import load_dotenv
-
 from src.auth.utils import get_secret_key
 from src.data_access.config import _build_url
-
-load_dotenv()
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL", _build_url())
@@ -21,7 +17,8 @@ REFRESH_TOKEN_LIFETIME_DAYS = 1
 # Current key id (appears in JWT header as 'kid')
 CURRENT_KID = os.environ.get("JWT_KID", "v1")
 
-# Current secret (mandatory)
+# Current secret (mandatory). Do not implicitly load from .env here; tests
+# expect a failure when SECRET_KEY is absent in the environment.
 CURRENT_SECRET = get_secret_key()  # reads SECRET_KEY
 
 # Optional previous secret for rollover windows

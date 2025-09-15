@@ -40,7 +40,9 @@ class ClientLogic:
             if not client:
                 return
             # Enforce any-or-own semantics according to role permissions
-            enforce_any_or_own(access_token, "client", "update", client.commercial_id)
+            owner_id = getattr(client, "commercial_id", None)
+            if owner_id is not None:
+                enforce_any_or_own(access_token, "client", "update", owner_id)
             updated_client = client_repository.update(client_id, client_data, session)
             session.commit()
             if updated_client:

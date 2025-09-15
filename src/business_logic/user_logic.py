@@ -47,9 +47,8 @@ class UserLogic:
                 return None
 
             subject_user_id, _ = get_user_id_and_role_from_token(access_token)
-            # Allow if role has global permission or if policy authorizes (self/any)
-            if not (has_permission(access_token, "user:update") or
-                    has_permission_for_user(access_token, "update", user, subject_user_id)):
+            # Allow only if policy authorizes (self/any). Global permission is enforced via policy.
+            if not has_permission_for_user(access_token, "update", user, subject_user_id):
                 raise PermissionError("You don't have permission to update this user.")
 
             updated_user = user_repository.update(user_id, user_data, session)

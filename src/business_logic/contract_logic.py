@@ -17,12 +17,28 @@ class ContractLogic:
             return contract
 
     @login_required
-    def get_contracts(self, access_token: str, user_id: int, filtered: bool) -> list[Contract]:
+    def get_contracts(
+        self,
+        access_token: str,
+        user_id: int,
+        filtered: bool,
+        *,
+        unsigned: bool = False,
+        unpaid: bool = False,
+    ) -> list[Contract]:
         with Session() as session:
+            # Build simple equality filters
+            filters: dict = {}
             if filtered:
-                return contract_repository.find_by(session, commercial_id=user_id)
-            else:
-                return contract_repository.get_all(session)
+                filters["commercial_id"] = user_id
+            if unsigned:
+                filters["is_signed"] = False
+            if unpaid:
+                filters["is_fully_paid"] = False
+
+            if filters:
+                return contract_repository.find_by(session, **filters)
+            return contract_repository.get_all(session)
 
     @require_permission("contract:view")
     def get_contract_by_id(self, access_token: str, contract_id: int) -> Contract | None:
@@ -43,7 +59,9 @@ class ContractLogic:
             if not contract:
                 return
             # Enforce any-or-own (commercial owner) semantics
-            enforce_any_or_own(access_token, "contract", "update", contract.commercial_id)
+            owner_id = getattr(contract, "commercial_id", None)
+            if owner_id is not None:
+                enforce_any_or_own(access_token, "contract", "update", owner_id)
             updated_contract = contract_repository.update(contract_id, contract_data, session)
             session.commit()
             if updated_contract:

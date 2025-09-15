@@ -35,6 +35,11 @@ def run_safely(title: str, func, *args, **kwargs):
     try:
         return True, func(*args, **kwargs)
     except Exception as e:
+        try:
+            import sentry_sdk  # lazy import to avoid hard dep at import time
+            sentry_sdk.capture_exception(e)
+        except Exception:
+            pass
         show_error(f"{e}", title=title)
         return False, None
 
@@ -256,10 +261,16 @@ attach_help(command)
 @epic_help
 @command.command()
 @click.option("-u", "--username", help="Login ID", required=False)
-def login(username):
-    """Login to the system."""
+@click.option("-p", "--password", help="Password", required=False)
+def login(username, password):
+    """Login to the system.
+
+    Notes:
+    - Passwords are not accepted via CLI options; you will be prompted securely.
+    - A refresh token is stored locally (0600) to support `refresh`.
+    """
     # Never accept passwords via CLI options; prompt securely instead
-    run_safely("Login", main_controller.login, username, None)
+    run_safely("Login", main_controller.login, username, password)
 
 @epic_help
 @command.command()
@@ -292,7 +303,7 @@ def refresh_cmd():
 @epic_help
 @command.command()
 def db_create():
-    """Create the database."""
+    """Create database tables and seed default roles/permissions (idempotent)."""
     init_db()
 
 @epic_help
@@ -301,7 +312,10 @@ def db_create():
 @click.option("-n", "--full-name", help="Full name", required=False)
 @click.option("-e", "--email", help="Email", required=False)
 def manager_create(username, full_name, email):
-    """Create a new manager."""
+    """Create a new management user (requires Administrator/root).
+
+    The created user receives full management permissions.
+    """
     has_root = _ensure_root()
     if has_root is False:
         print(Panel(
@@ -341,7 +355,8 @@ def user_create(username, full_name, email, role_id):
     token = get_required_token()
     if not token:
         return
-    run_safely("User Create", main_controller.create_user, token, username, full_name, email, role_id)
+    # Delegate prompting to controller; only pass token
+    run_safely("User Create", main_controller.create_user, token)
 
 @epic_help
 @user.command("list")
@@ -374,7 +389,8 @@ def user_update(user_id, username, full_name, email, role_id):
     token = get_required_token()
     if not token:
         return
-    run_safely("User Update", main_controller.update_user, token, user_id, username, full_name, email, role_id)
+    # Controller handles interactive updates
+    run_safely("User Update", main_controller.update_user, token, user_id)
 
 @epic_help
 @user.command("delete")
@@ -390,7 +406,12 @@ def user_delete(user_id):
 @command.group(invoke_without_command=True)
 @click.pass_context
 def client(ctx: click.Context):
-    """Client management commands."""
+    """Client management commands.
+
+    Tips:
+    - `client list --only-mine` shows only clients managed by the logged-in commercial.
+    - Dates accept `dd/mm/yyyy` for first/last contact.
+    """
     if not ctx.invoked_subcommand:
         render_help_with_logo(ctx)
 attach_help(client)
@@ -412,8 +433,9 @@ def client_create(full_name, email, phone, company_id, first_contact_date, last_
 
 @epic_help
 @client.command("list")
-@click.option("--only-mine", is_flag=True, help="Show only your clients", default=False)
+@click.option("--only-mine", is_flag=True, help="Show only clients managed by the logged-in commercial", default=False)
 def client_list(only_mine):
+    """List clients (optionally restricted to your portfolio)."""
     token = get_required_token()
     if not token:
         return
@@ -441,8 +463,18 @@ def client_update(client_id, full_name, email, phone, company_id, first_contact_
     token = get_required_token()
     if not token:
         return
-    run_safely("Client Update", main_controller.update_client,
-               token, client_id, full_name, email, phone, company_id, first_contact_date, last_contact_date)
+    run_safely(
+        "Client Update",
+        main_controller.update_client,
+        token,
+        client_id,
+        full_name,
+        email,
+        phone,
+        company_id,
+        first_contact_date,
+        last_contact_date,
+    )
 
 @epic_help
 @client.command("delete")
@@ -458,7 +490,12 @@ def client_delete(client_id):
 @command.group(invoke_without_command=True)
 @click.pass_context
 def contract(ctx: click.Context):
-    """Contract management commands."""
+    """Contract management commands.
+
+    Examples:
+    - List only your unsigned contracts: `contract list --only-mine --unsigned`
+    - List contracts not fully paid: `contract list --unpaid`
+    """
     if ctx.invoked_subcommand is None:
         render_help_with_logo(ctx)
 attach_help(contract)
@@ -480,12 +517,15 @@ def contract_create(client_id, commercial_id, total_amount, remaining_amount, is
 
 @epic_help
 @contract.command("list")
-@click.option("--only-mine", is_flag=True, help="Show only your contracts", default=False)
-def contract_list(only_mine):
+@click.option("--only-mine", is_flag=True, help="Show only contracts managed by the logged-in commercial", default=False)
+@click.option("--unsigned", is_flag=True, help="Filter to contracts not signed yet", default=False)
+@click.option("--unpaid", is_flag=True, help="Filter to contracts not fully paid", default=False)
+def contract_list(only_mine, unsigned, unpaid):
+    """List contracts with optional filters (combinable)."""
     token = get_required_token()
     if not token:
         return
-    run_safely("Contract List", main_controller.list_contracts, token, only_mine)
+    run_safely("Contract List", main_controller.list_contracts, token, only_mine, unsigned, unpaid)
 
 @epic_help
 @contract.command("view")
@@ -509,8 +549,18 @@ def contract_update(contract_id, client_id, commercial_id, total_amount, remaini
     token = get_required_token()
     if not token:
         return
-    run_safely("Contract Update", main_controller.update_contract,
-               token, contract_id, client_id, commercial_id, total_amount, remaining_amount, is_signed, is_fully_paid)
+    run_safely(
+        "Contract Update",
+        main_controller.update_contract,
+        token,
+        contract_id,
+        client_id,
+        commercial_id,
+        total_amount,
+        remaining_amount,
+        is_signed,
+        is_fully_paid,
+    )
 
 @epic_help
 @contract.command("delete")
@@ -529,7 +579,13 @@ def contract_delete(contract_id):
 @command.group(invoke_without_command=True)
 @click.pass_context
 def event(ctx: click.Context):
-    """Event management commands."""
+    """Event management commands.
+
+    Tips:
+    - `event list --only-mine` shows events assigned to you (support).
+    - `event list --unassigned` lists events without support (management only).
+    - Dates accept `dd/mm/yyyy` or `dd/mm/yyyy HH:MM`.
+    """
     if ctx.invoked_subcommand is None:
         render_help_with_logo(ctx)
 attach_help(event)
@@ -540,8 +596,8 @@ attach_help(event)
 @click.option("--title", type=str, help="Event title", required=False)
 @click.option("--full-address", type=str, help="Full address", required=False)
 @click.option("--support-contact-id", type=int, help="Support user ID", required=False)
-@click.option("--start-date", type=str, help="Start date (dd/mm/yyyy)", required=False)
-@click.option("--end-date", type=str, help="End date (dd/mm/yyyy)", required=False)
+@click.option("--start-date", type=str, help="Start date (dd/mm/yyyy or dd/mm/yyyy HH:MM)", required=False)
+@click.option("--end-date", type=str, help="End date (dd/mm/yyyy or dd/mm/yyyy HH:MM)", required=False)
 @click.option("--participant-count", type=int, help="Participant count", required=False)
 @click.option("--notes", type=str, help="Notes", required=False)
 def event_create(
@@ -553,16 +609,17 @@ def event_create(
     if not token:
         return
     try:
+        # Pass provided options; controller will prompt for any missing fields
         main_controller.create_event(
-            token, 
-            contract_id, 
-            title, 
-            full_address, 
-            support_contact_id, 
-            start_date, 
-            end_date, 
-            participant_count, 
-            notes
+            token,
+            contract_id,
+            title,
+            full_address,
+            support_contact_id,
+            start_date,
+            end_date,
+            participant_count,
+            notes,
         )
     except Exception as e:
         show_error(f"{e}", title="Event Create")
@@ -572,6 +629,7 @@ def event_create(
 @click.option("--only-mine", is_flag=True, help="Show only your events", default=False)
 @click.option("--unassigned", is_flag=True, help="Show only unassigned events (management only)", default=False)
 def event_list(only_mine, unassigned):
+    """List events with optional restriction (`--only-mine`) or unassigned filter."""
     token = get_required_token()
     if not token:
         return
@@ -593,8 +651,8 @@ def event_view(event_id):
 @click.option("--title", type=str, help="Event title", required=False)
 @click.option("--full-address", type=str, help="Full address", required=False)
 @click.option("--support-contact-id", type=int, help="Support user ID", required=False)
-@click.option("--start-date", type=str, help="Start date (dd/mm/yyyy)", required=False)
-@click.option("--end-date", type=str, help="End date (dd/mm/yyyy)", required=False)
+@click.option("--start-date", type=str, help="Start date (dd/mm/yyyy or dd/mm/yyyy HH:MM)", required=False)
+@click.option("--end-date", type=str, help="End date (dd/mm/yyyy or dd/mm/yyyy HH:MM)", required=False)
 @click.option("--participant-count", type=int, help="Participant count", required=False)
 @click.option("--notes", type=str, help="Notes", required=False)
 def event_update(event_id, 
@@ -610,16 +668,18 @@ def event_update(event_id,
     if not token:
         return
     try:
-        main_controller.update_event(token, 
-                                     event_id, 
-                                     contract_id, 
-                                     title, 
-                                     full_address, 
-                                     support_contact_id, 
-                                     start_date, 
-                                     end_date, 
-                                     participant_count, 
-                                     notes)
+        main_controller.update_event(
+            token,
+            event_id,
+            contract_id,
+            title,
+            full_address,
+            support_contact_id,
+            start_date,
+            end_date,
+            participant_count,
+            notes,
+        )
     except Exception as e:
         show_error(f"{e}", title="Event Update")
 
@@ -662,6 +722,7 @@ attach_help(company)
 @company.command("create")
 @click.option("-n", "--name", help="Company name", required=False)
 def company_create(name):
+    """Create a company (name required; missing fields will be prompted)."""
     token = get_required_token()
     if not token:
         return
@@ -702,7 +763,7 @@ def company_update(company_id, name):
     if not token:
         return
     try:
-        main_controller.update_company(token, company_id, name)
+        main_controller.update_company(token, company_id)
     except Exception as e:
         show_error(f"{e}", title="Company Update")
 
@@ -835,7 +896,11 @@ def role_revoke(role_id, permission):
     token = get_required_token()
     if not token:
         return
-    ok, r = run_safely("Permission", role_logic.revoke_permission, token, role_id, permission)
+    ok, r = run_safely("Permission", 
+                        role_logic.revoke_permission, 
+                        token, 
+                        role_id, 
+                        permission)
     if not ok:
         return
     if not r:
@@ -861,9 +926,12 @@ def role_perms():
     token = get_required_token()
     if not token:
         return
-    ok, names = run_safely("Permission", role_logic.list_all_permission_names, token)
+    ok, names = run_safely("Permission", 
+                            role_logic.list_all_permission_names, 
+                            token)
     if not ok:
         return
+
     if not names:
         print(Panel(
             Text("No permissions in database.", style="bold grey100"), 

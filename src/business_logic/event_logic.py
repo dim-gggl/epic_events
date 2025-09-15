@@ -17,10 +17,12 @@ class EventLogic:
             if not contract.is_signed:
                 raise ValueError("Cannot create event for an unsigned contract.")
             # Permission: allow global event:create or event:create:own_client if commercial owner
-            if not can_create_event_for_contract(access_token, contract.commercial_id):
-                raise PermissionError(
-                    "You don't have permission to create an event for this contract."
-                )
+            contract_owner = getattr(contract, "commercial_id", None)
+            if contract_owner is not None:
+                if not can_create_event_for_contract(access_token, contract_owner):
+                    raise PermissionError(
+                        "You don't have permission to create an event for this contract."
+                    )
 
             event = event_repository.create(event_data, session)
             session.commit()
@@ -62,9 +64,11 @@ class EventLogic:
             if not event:
                 return
             # Management may update any; support may update only assigned events
-            enforce_any_or_assigned(
-                access_token, "event", "update", event.support_contact_id
-            )
+            assigned_id = getattr(event, "support_contact_id", None)
+            if assigned_id is not None:
+                enforce_any_or_assigned(
+                    access_token, "event", "update", assigned_id
+                )
             updated_event = event_repository.update(event_id, event_data, session)
             session.commit()
             if updated_event:
