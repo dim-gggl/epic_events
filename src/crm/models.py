@@ -75,25 +75,25 @@ class User(Base):
     )
     role = relationship("Role", back_populates="users")
 
-    created_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
+    created_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
                         nullable=False)
-    updated_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
-                        onupdate=func.now(), 
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
+                        onupdate=func.now(),
                         nullable=False)
 
     is_active = Column(Boolean, nullable=False, server_default="true")
     last_login = Column(DateTime(timezone=True), nullable=True)
 
-    managed_clients = relationship("Client", 
-                                   back_populates="commercial", 
+    managed_clients = relationship("Client",
+                                   back_populates="commercial",
                                    passive_deletes=True)
-    managed_contracts = relationship("Contract", 
-                                      back_populates="commercial", 
+    managed_contracts = relationship("Contract",
+                                      back_populates="commercial",
                                       passive_deletes=True)
-    supported_events = relationship("Event", 
-                                    back_populates="support_contact", 
+    supported_events = relationship("Event",
+                                    back_populates="support_contact",
                                     passive_deletes=True)
 
     refresh_token_hash = Column(String(255), nullable=True)
@@ -110,12 +110,12 @@ class Company(Base):
     __tablename__ = "company"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(128), unique=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
+    created_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
                         nullable=False)
-    updated_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
-                        onupdate=func.now(), 
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
+                        onupdate=func.now(),
                         nullable=False)
 
     clients = relationship("Client", back_populates="company", passive_deletes=True)
@@ -137,12 +137,12 @@ class Client(Base):
     first_contact_date = Column(DateTime(timezone=True), nullable=False)
     last_contact_date  = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
+    created_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
                         nullable=False)
-    updated_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
-                        onupdate=func.now(), 
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
+                        onupdate=func.now(),
                         nullable=False)
 
     def __repr__(self):
@@ -171,12 +171,12 @@ class Contract(Base):
     is_signed = Column(Boolean, nullable=False, server_default="false")
     is_fully_paid = Column(Boolean, nullable=False, server_default="false")
 
-    created_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
+    created_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
                         nullable=False)
-    updated_at = Column(DateTime(timezone=True), 
-                        server_default=func.now(), 
-                        onupdate=func.now(), 
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(),
+                        onupdate=func.now(),
                         nullable=False)
 
     events = relationship("Event", back_populates="contract", uselist=True, passive_deletes=True)

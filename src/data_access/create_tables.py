@@ -1,6 +1,6 @@
-from sqlalchemy import MetaData, inspect, select
-from sqlalchemy.exc import SQLAlchemyError
 import sentry_sdk
+from sqlalchemy import MetaData, inspect, select, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
 from src.crm.models import PermissionModel, Role
@@ -49,16 +49,29 @@ def _database_has_any_data() -> bool:
 
     with engine.connect() as conn:
         for name, table in md.tables.items():
-            # Optional: skip migration bookkeeping tables
-            if name in {"alembic_version"}:
-                continue
             try:
                 if conn.execute(select(1).select_from(table).limit(1)).first():
                     return True
-            except SQLAlchemyError:
-                # Non-fatal probe issues (permissions, views, etc.) → ignore and continue
+            except SQLAlchemyError as e:
+                sentry_sdk.capture_exception(e)
                 continue
     return False
+
+
+def _ensure_schema_exists() -> None:
+    schema_name = getattr(metadata, "schema", None)
+    if not schema_name:
+        return
+    dialect = engine.dialect.name.lower()
+    if dialect not in {"postgresql", "postgres"}:
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        raise
+
 
 
 def init_db() -> None:
@@ -67,21 +80,16 @@ def init_db() -> None:
 
     Always creates any missing tables (idempotent), even if data already exists.
     """
-    # Abort early if database already contains data to avoid accidental re-init
-
     # Ensure all tables defined on metadata exist, without altering existing ones.
+    _ensure_schema_exists()
     metadata.create_all(engine)
 
     with Session() as session:
         try:
             _seed_roles(session)
-            session.flush()
             session.commit()
         except Exception as e:
             sentry_sdk.capture_exception(e)
             session.rollback()
             raise
-        finally:
-            session.flush()
-            session.commit()
 

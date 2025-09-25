@@ -1,10 +1,9 @@
-import os
 import jwt
 
-from src.exceptions import ExpiredTokenError, InvalidTokenError
+from src.auth.utils import get_secret_key
+from src.exceptions import InvalidTokenError
 
-from .config import get_all_secrets, get_secret_by_kid
-
+SECRET_KEY = get_secret_key()
 
 def verify_access_token(token: str) -> dict:
     """
@@ -23,34 +22,13 @@ def verify_access_token(token: str) -> dict:
     if not token:
         raise InvalidTokenError("No token provided. Please authenticate first.")
     try:
-        # Test-friendly fallback: allow simple placeholder tokens (no dots)
-        # when running under pytest, so higher-level policy tests can stub
-        # authorization without crafting real JWTs.
-        if os.environ.get("PYTEST_CURRENT_TEST") and token.count(".") < 2:
-            return {"sub": "1", "role_id": "3"}
-
-        # Select secret based on 'kid' header if present; otherwise try all
-        try:
-            header = jwt.get_unverified_header(token)
-            key = get_secret_by_kid(header.get("kid"))
-            payload = jwt.decode(token, key=key, algorithms=["HS256"])
-        except jwt.InvalidTokenError:
-            # Legacy tokens without 'kid': try known secrets in order
-            last_exc = None
-            for key in get_all_secrets():
-                try:
-                    payload = jwt.decode(token, key=key, algorithms=["HS256"])
-                    break
-                except jwt.InvalidTokenError as e:
-                    last_exc = e
-            else:
-                raise last_exc or jwt.InvalidTokenError("Unable to verify token")
+        payload = jwt.decode(token, key=SECRET_KEY, algorithms=["HS256"])
         if 'sub' not in payload or 'role_id' not in payload:
             raise InvalidTokenError("Token missing required fields.")
         return payload
     except jwt.ExpiredSignatureError as e:
-        raise ExpiredTokenError(f"Token has expired: {e}")
-    except jwt.InvalidTokenError as e:
-        raise InvalidTokenError(f"Invalid token: {e}")
+        raise e(f"Token has expired: {e}")
+    except InvalidTokenError as e:
+        raise e(f"Invalid token: {e}")
     except Exception as e:
-        raise InvalidTokenError(f"Token verification failed: {e}")
+        raise e(f"Token verification failed: {e}")

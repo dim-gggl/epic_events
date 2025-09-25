@@ -1,0 +1,8 @@
+import os
+
+USERNAME_MIN_LENGTH = os.environ.get("USERNAME_MIN_LENGTH", 5)
+USERNAME_MAX_LENGTH = os.environ.get("USERNAME_MAX_LENGTH", 64)
+PASSWORD_MIN_LENGTH = os.environ.get("PASSWORD_MIN_LENGTH", 8)
+PASSWORD_MAX_LENGTH = os.environ.get("PASSWORD_MAX_LENGTH", 128)
+ROLE_MIN_ID = os.environ.get("ROLE_MIN_ID", 1)
+ROLE_MAX_ID = os.environ.get("ROLE_MAX_ID", 3)

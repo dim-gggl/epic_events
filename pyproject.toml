@@ -9,6 +9,7 @@ dependencies = [
     "bcrypt>=4.3.0",
     "coverage>=7.10.6",
     "email-validator>=2.3.0",
+    "flake8>=7.3.0",
     "phonenumbers>=9.0.13",
     "psycopg>=3.2.10",
     "psycopg-binary==3.2.10",

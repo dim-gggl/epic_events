@@ -3,13 +3,13 @@ import os
 from src.auth.utils import get_secret_key
 from src.data_access.config import _build_url
 
-
 DATABASE_URL = os.environ.get("DATABASE_URL", _build_url())
 
 # Token lifetimes
 ACCESS_TOKEN_LIFETIME_MINUTES = 30
 REFRESH_TOKEN_LIFETIME_DAYS = 1
 
+SECRET_KEY = get_secret_key()
 # --- JWT key rollover support ---
 # We support a current key (identified by JWT_KID, default 'v1') and an optional
 # previous key (SECRET_KEY_PREV) to allow seamless rotation.
@@ -19,7 +19,7 @@ CURRENT_KID = os.environ.get("JWT_KID", "v1")
 
 # Current secret (mandatory). Do not implicitly load from .env here; tests
 # expect a failure when SECRET_KEY is absent in the environment.
-CURRENT_SECRET = get_secret_key()  # reads SECRET_KEY
+CURRENT_SECRET = SECRET_KEY  # reads SECRET_KEY
 
 # Optional previous secret for rollover windows
 PREVIOUS_SECRET = os.environ.get("SECRET_KEY_PREV")

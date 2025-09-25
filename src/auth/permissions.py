@@ -1,5 +1,6 @@
 from functools import wraps
 
+from src.auth.jwt.token_storage import get_access_token
 from src.auth.jwt.verify_token import verify_access_token
 from src.crm.models import Role
 from src.data_access.config import Session
@@ -9,23 +10,31 @@ ORDERED_DEFAULT_ROLES: list[str] = ["management", "commercial", "support"]
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "support": [
-        "client:list", "client:view", "contract:list", "contract:view",
+        # Accès lecture à tous les clients, contrats, événements et companies pour assigner support
+        "client:list", "client:view",
+        "contract:list", "contract:view",
         "event:list", "event:view", "event:update:assigned",
+        "company:list", "company:view",
     ],
     "commercial": [
-        "client:list", "client:view:own", "client:view",
-        "contract:list", "contract:view", "event:list", "event:view",
-        "client:create", "client:update:own", "contract:update:own",
-        "event:create:own_client",
+        # Accès complet aux clients, contrats et événements + création companies
+        "client:list", "client:view", "client:create", "client:update:own",
+        "contract:list", "contract:view", "contract:create", "contract:update:own",
+        "event:list", "event:view", "event:create:own_client",
         "company:list", "company:view", "company:create",
     ],
     "management": [
+        # Gestion des utilisateurs et supervision générale
         "user:list", "user:view", "user:create", "user:update", "user:delete",
         "role:list", "role:view", "role:assign",
-        "client:list", "client:view", "client:create", "client:update", "client:delete",
-        "contract:list", "contract:view", "contract:create", "contract:update", "contract:delete",
-        "event:list", "event:view", "event:create", "event:update",
-        "company:list", "company:view"
+        # Supervision clients (lecture seule - pas de modification des relations commerciales)
+        "client:list", "client:view",
+        # Gestion contrats avec contraintes (client-commercial déjà liés)
+        "contract:list", "contract:view", "contract:create:existing_relation", "contract:update", "contract:delete",
+        # Gestion événements avec contraintes (contrat signé uniquement)
+        "event:list", "event:view", "event:create:signed_contract", "event:update", "event:delete",
+        # Gestion complète des entreprises
+        "company:list", "company:view", "company:create", "company:update", "company:delete"
     ],
 }
 
@@ -57,12 +66,11 @@ def _permissions_from_db(role_id: int) -> list[str] | None:
 
 def has_permission(access_token: str, required_permission: str) -> bool:
     try:
-        _, role_id = get_user_id_and_role_from_token(access_token)
-        # Try DB-backed permissions first
+        role_id = get_user_id_and_role_from_token(access_token)[1]
         perms = _permissions_from_db(role_id)
-        if perms is not None:
+        if perms:
             return required_permission in perms
-        # Fallback to default map
+
         role_name = ROLE_ID_TO_NAME.get(role_id)
         if not role_name:
             return False
@@ -76,33 +84,22 @@ def login_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         # For class methods, access_token is the second argument (after self)
-        if len(args) >= 2 and isinstance(args[1], str):
-            access_token = args[1]
-        elif 'access_token' in kwargs:
-            access_token = kwargs['access_token']
-        else:
-            raise PermissionError("Access token not found in function arguments")
-
-        if not access_token:
-            raise PermissionError("Authentication token is required.")
+        token = get_access_token()
+        if not token:
+            raise PermissionError("You must sign in to continue")
         try:
-            verify_access_token(access_token)
-        except Exception as e:
-            raise PermissionError(f"Invalid token: {e}")
-        return func(*args, **kwargs)
+            verify_access_token(token)
+            return func(*args, **kwargs)
+        except Exception as token_error:
+            raise PermissionError(f"{token_error}")
     return wrapper
 
 def require_permission(permission: str):
     def decorator(func):
         @wraps(func)
-
         def wrapper(*args, **kwargs):
-            # For class methods, access_token is the second argument (after self)
-            if len(args) >= 2 and isinstance(args[1], str):
-                access_token = args[1]
-            elif 'access_token' in kwargs:
-                access_token = kwargs['access_token']
-            else:
+            access_token = get_access_token()
+            if not access_token:
                 raise PermissionError("Access token not found in function arguments")
 
             if not has_permission(access_token, permission):
@@ -114,10 +111,3 @@ def require_permission(permission: str):
         return wrapper
     return decorator
 
-# Complex permission checks
-def has_permission_for_user(access_token: str, action: str, user_to_view, user_id: int) -> bool:
-    if has_permission(access_token, f"user:{action}:any"):
-        return True
-    if user_to_view.id == user_id:
-        return True
-    return False

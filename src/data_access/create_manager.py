@@ -1,88 +1,33 @@
-import ctypes
-import os
 import sys
 
 from sqlalchemy import select
 
+from src.auth.decorators import in_session, require_elevated_privileges
 from src.auth.hashing import hash_password
 from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS
-from src.auth.utils import _prompt_password
-from src.auth.validators import is_valid_email, is_valid_username
+from src.crm.controllers.services import DataService
 from src.crm.models import PermissionModel, Role, User
+from src.crm.views.views import MainView
 from src.data_access.config import Session
 
+session = Session()
 
-def _ensure_root() -> bool:
-    """Check administrative privileges without terminating the process.
-
-    Returns True when the current process has administrative privileges, False otherwise.
-
-    - On POSIX (macOS/Linux), require EUID == 0 (i.e., 'sudo ...').
-    - On Windows, require an elevated process (Administrator).
-    """
-    if os.name == "nt":
-        try:
-            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception:
-            # If we cannot determine admin status, treat as not elevated
-            is_admin = False
-
-        if not is_admin:
-            sys.stderr.write("This command must be run as root.\n")
-            return False
-        return True
-    else:
-        if os.geteuid() != 0:
-            sys.stderr.write("This command must be run with root privileges.\n")
-            return False
-        return True
+view = MainView()
 
 
+@in_session(session=session)
+@require_elevated_privileges
 def init_manager(username: str | None=None,
                 full_name: str | None=None,
                 email: str | None=None) -> None:
     """Create a 'management' user. Only callable as root."""
-    is_root = _ensure_root()
-    if is_root is False:
-        return
+    data_service = DataService(view)
 
-    # Collect inputs if missing
-    if not username:
-        username = input("Username: ").strip()
-        if not is_valid_username(username):
-            print("Username should be between 5 and 64 characters long.\n"
-                  "and should not already be in use.")
-            username = input("Username: ").strip()
-            if not is_valid_username(username):
-                print("Username should be between 5 and 64 characters long.\n"
-                      "and should not already be in use.")
-                print("Try again later.")
-                sys.exit(1)
+    username = data_service.treat_username_from_input(username)
+    full_name = data_service.treat_full_name_from_input(full_name)
+    email = data_service.treat_email_from_input(email)
+    password = data_service.treat_password_from_input(confirm=True)
 
-    if not full_name:
-        full_name = input("Full name: ").strip()
-        choice = input("Is this correct? (y/n): ").strip()
-        match choice:
-            case "y" | "Y" | "yes" | "Yes":
-                pass
-            case "n" | "N" | "no" | "No":
-                full_name = input("Full name: ").strip()
-            case _:
-                print("Invalid choice.")
-                print("Try again later.")
-                sys.exit(1)
-
-    if not email:
-        email = input("Email: ").strip()
-        if not is_valid_email(email):
-            print("Invalid email address.")
-            email = input("Email: ").strip()
-            if not is_valid_email(email):
-                print("Invalid email address.")
-                print("Try again later.")
-                sys.exit(1)
-
-    password = _prompt_password(confirm=True)
     password_hash = hash_password(password)
 
     with Session() as session:
@@ -95,7 +40,10 @@ def init_manager(username: str | None=None,
         # Ensure management permissions both in array and normalized tables
         mgmt_perms = DEFAULT_ROLE_PERMISSIONS.get("management", [])
         role.permissions = list(mgmt_perms)
+
         # Create missing PermissionModel rows and set association
+        # Only add permissions that don't already exist for this role
+        existing_perms = {p.id for p in role.permissions_rel} if role.permissions_rel else set()
         perm_rows = []
         for name in mgmt_perms:
             perm = session.scalar(select(PermissionModel).where(PermissionModel.name == name))
@@ -103,8 +51,17 @@ def init_manager(username: str | None=None,
                 perm = PermissionModel(name=name)
                 session.add(perm)
                 session.flush()
-            perm_rows.append(perm)
-        role.permissions_rel = perm_rows
+
+            # Only add if not already associated with this role
+            if perm.id not in existing_perms:
+                perm_rows.append(perm)
+
+        # Only update permissions_rel if there are new permissions to add
+        if perm_rows:
+            if role.permissions_rel:
+                role.permissions_rel.extend(perm_rows)
+            else:
+                role.permissions_rel = perm_rows
 
         existing_email = session.scalar(select(User).where(User.email == email))
         if existing_email:

@@ -7,8 +7,7 @@ import jwt
 from .config import (
     ACCESS_TOKEN_LIFETIME_MINUTES,
     REFRESH_TOKEN_LIFETIME_DAYS,
-    get_current_kid,
-    get_secret_by_kid,
+    SECRET_KEY,
 )
 
 
@@ -30,7 +29,8 @@ def generate_token(
         - refresh_exp: Expiration datetime of refresh token
         - refresh_hash: Hashed refresh token (to store in database)
     """
-    secret = get_secret_by_kid(get_current_kid())
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY must be configured")
 
     expiration = datetime.datetime.now(datetime.UTC) + \
         datetime.timedelta(minutes=ACCESS_TOKEN_LIFETIME_MINUTES)
@@ -41,12 +41,9 @@ def generate_token(
     }
 
     # Generate the access token and the raw refresh token
-    access_token = jwt.encode(
-        access_payload,
-        secret,
-        algorithm="HS256",
-        headers={"kid": get_current_kid()},
-    )
+    access_token = jwt.encode(access_payload,
+                              SECRET_KEY,
+                              algorithm="HS256")
     raw_refresh = secrets.token_urlsafe(32)
 
     # Hash the refresh token

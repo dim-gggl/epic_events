@@ -4,24 +4,31 @@ import tempfile
 from datetime import UTC, datetime
 from typing import Any
 
-from src.views.views import MainView
+from src.crm.views.views import MainView
+from src.settings import TEMP_FILE_PATH
 
 view = MainView()
 
-_auth_location: str | None = None
+# If not assigned, TEMP_FILE_PATH is set to None. In this case,
+# the temporary file is created in the system folder.
+_auth_location: str | None = TEMP_FILE_PATH
 
 
 def _get_auth_location() -> str:
     """Get or create the temporary token file path."""
     global _auth_location
     if _auth_location is None:
-        # Use a fixed temporary file path that persists across process invocations
         temp_dir = tempfile.gettempdir()
-        _auth_location = os.path.join(temp_dir, 'epic_events_session.jwt')
+        _auth_location = os.path.join(temp_dir,
+                                      'epic_events_session.jwt')
     return _auth_location
 
 
-def store_token(access_token: str, refresh_token: str, refresh_expiry: datetime, user_id: int, role_id: int) -> None:
+def store_token(access_token: str,
+                refresh_token: str,
+                refresh_expiry: datetime,
+                user_id: int,
+                role_id: int) -> None:
     """
     Store JWT tokens and user info in a temporary file.
     
@@ -44,12 +51,16 @@ def store_token(access_token: str, refresh_token: str, refresh_expiry: datetime,
     try:
         token_file = _get_auth_location()
         with open(token_file, 'w') as f:
-            json.dump(token_data, f)
+            json.dump(token_data, f, ensure_ascii=True, indent=4)
         # Set restrictive file permissions (owner only)
-        os.chmod(token_file, 0o600)
+        os.chmod(token_file, 0o700)
+        return True
+
     except Exception as e:
-        view.wrong_message(f"Failed to store authentication tokens: {str(e)}")
-        raise
+        view.wrong_message(
+            f"Failed to store authentication tokens: {str(e)}"
+        )
+        return False
 
 
 def get_stored_token() -> dict[str, Any] | None:
@@ -61,35 +72,24 @@ def get_stored_token() -> dict[str, Any] | None:
     """
     token_file_path = _get_auth_location()
     if not os.path.exists(token_file_path):
-        os.makedirs(os.path.dirname(token_file_path), exist_ok=True)
         return None
 
     try:
         with open(token_file_path) as f:
-            content = f.read().strip()
-            if not content:
-                # File is empty, treat as no token
-                cleanup_token_file()
-                return None
-            token_data = json.loads(content)
-
-        # Convert refresh_expiry back to datetime
-        if 'refresh_expiry' in token_data:
-            token_data['refresh_expiry'] = datetime.fromisoformat(token_data['refresh_expiry'])
-        if 'stored_at' in token_data:
-            token_data['stored_at'] = datetime.fromisoformat(token_data['stored_at'])
-
+            token_data = json.load(f)
+        if not token_data:
+            # File is empty, treat as no token
+            cleanup_token_file()
+            return None
         return token_data
-
-    except (json.JSONDecodeError, KeyError, ValueError) as e:
-        view.wrong_message(f"Invalid token file format. \n{e}")
+    except json.JSONDecodeError as e:                                             # type: ignore
+        view.wrong_message(f"Decode error: {e}")
         cleanup_token_file()
         return None
-
     except Exception as e:
-        view.wrong_message(f"Failed to read authentication tokens: {str(e)}")
-        raise
-
+        view.wrong_message(
+            f"Failed to read authentication tokens: {str(e)}")
+        return None
 
 def get_access_token() -> str | None:
     """
@@ -99,8 +99,9 @@ def get_access_token() -> str | None:
         Access token string or None if not available
     """
     token_data = get_stored_token()
-    return token_data.get('access_token') if token_data else None
-
+    if token_data:
+        return token_data.get('access_token')
+    return
 
 def get_user_info_from_token() -> dict[str, Any] | None:
     """

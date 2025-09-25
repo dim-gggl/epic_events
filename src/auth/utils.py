@@ -1,33 +1,39 @@
+import ctypes
 import os
 
 from rich.console import Console
 
-from src.auth.validators import is_valid_password
-from src.views.views import MainView
-
-view = MainView()
 console = Console()
-
+print = console.print
 
 def get_secret_key() -> str:
     value = os.environ.get("SECRET_KEY")
     if not value:
-        raise RuntimeError("SECRET_KEY is not set")
+        print("[red]SECRET_KEY is not set[/red]")
     return value
 
-def _prompt_password(confirm: bool = True) -> str:
-    """Prompt for a password securely (no echo)."""
-    pwd = console.input("New password: ", password=True).strip()
-    if not is_valid_password(pwd):
-        view.wrong_message("Password should be at least 8 characters long\n"
-              "and contain at least one uppercase letter, one\n"
-              "lowercase letter and one digit.")
-        if not confirm:
-            return _prompt_password(confirm=False)
-        return _prompt_password()
-    if confirm:
-        rep = console.input("Confirm password: ", password=True).strip()
-        if pwd != rep:
-            view.wrong_message("Passwords do not match.")
-            return
-        return pwd
+
+def _ensure_root() -> bool:
+    """Check administrative privileges without terminating the process.
+
+    Returns True when the current process has administrative privileges, False otherwise.
+
+    - On POSIX (macOS/Linux), require EUID == 0 (i.e., 'sudo ...').
+    - On Windows, require an elevated process (Administrator).
+    """
+    if os.name == "nt":
+        try:
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            # If we cannot determine admin status, treat as not elevated
+            is_admin = False
+
+        if not is_admin:
+            print("[red]This command must be run as root.[/red]")
+            return False
+        return True
+    else:
+        if os.geteuid() != 0:
+            print("[red]This command must be run with root privileges.[/red]")
+            return False
+        return True

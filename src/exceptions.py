@@ -1,3 +1,8 @@
+import jwt
+
+InvalidTokenError = jwt.InvalidTokenError
+
+
 class EpicEventsError(Exception):
     alert: str = __name__
 
@@ -19,14 +24,14 @@ class OperationDeniedError(EpicEventsError):
 class InvalidUsernameError(EpicEventsError):
     alert = "INVALID USERNAME"
 
+class InvalidIdError(EpicEventsError):
+    alert = "INVALID ID"
+
 class InvalidUserIDError(EpicEventsError):
     alert = "INVALID USER ID"
 
 class InvalidPasswordError(EpicEventsError):
     alert = "INVALID PASSWORD"
-
-class InvalidTokenError(EpicEventsError):
-    alert = "INVALID TOKEN"
 
 class ExpiredTokenError(EpicEventsError):
     alert = "EXPIRED TOKEN"
