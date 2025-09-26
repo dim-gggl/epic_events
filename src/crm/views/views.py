@@ -128,25 +128,28 @@ class MainView:
     #########################################################
 
     @clear_console
-    def display_message(self, message, style=epic_style):
+    def display_message(self, message, style=epic_style, press_enter=False):
+        self.display_logo(press_enter=False, centered=True)
         print(Panel.fit(
             Text(message, style=style, justify="center"),
             padding=(1, 6)
         ),
             justify="center"
         )
-        print("\n")
-        print(Panel.fit(
-            Text("Press ENTER", style=style, justify="center"),
-            padding=(0, 6)
-        ),
-            justify="center"
-        )
-        input()
+        if press_enter:
+            print("\n")
+            print(Panel.fit(
+                Text("Press ENTER", style=style, justify="center"),
+                padding=(0, 6)
+            ),
+                justify="center"
+            )
+            input(f"{'':^}")
+
 
     @clear_console
     def success_message(self, message):
-        self.display_message(message, "bold dark_sea_green4")
+        self.display_message(message, "bold dark_sea_green4", press_enter=False)
 
     @clear_console
     def wrong_message(self, message):
@@ -173,7 +176,14 @@ class MainView:
 
     def _get_input(self, prompt_text, password=False):
         """Generic input method."""
-        return console.input(f"{prompt_text}: ", password=password)
+        self.display_logo(press_enter=False, centered=True)
+        print(Panel.fit(
+            Text(prompt_text, style=white_style, justify="center"),
+            padding=(0, 3)
+            ),
+            justify="center"
+        )
+        return console.input(f"{'':^}", password=password)
 
     @clear_console
     def input(self, prompt, password=False, justify="center"):
@@ -205,13 +215,13 @@ class MainView:
 
     @clear_console
     def get_password(self) -> str:
-        return self._get_input("New password", password=True)
+        return self._get_input("Password", password=True)
 
     @clear_console
     def get_password_with_confirmation(self) -> str:
         """Get password with confirmation."""
         while True:
-            password = self._get_input("New password", password=True)
+            password = self._get_input("Password", password=True)
             confirm_password = self._get_input("Confirm password", password=True)
 
             if password == confirm_password:
@@ -481,30 +491,16 @@ class MainView:
     @clear_console
     def display_login(self, access_token, refresh_token, refresh_exp):
         """Display login success without showing sensitive tokens."""
+        self.display_logo(press_enter=False, centered=True)
         print(
             banner(
                 "LOGIN SUCCESSFUL",
-                "bold gold1",
+                white_style,
                 "center",
                 "bold gold1",
                 title="AUTHENTICATION",
                 title_style=epic_style,
             ),
-            end="\n\n"
-        )
-
-        exp_text = (refresh_exp.strftime("%d/%m/%Y")
-                    if hasattr(refresh_exp, "strftime")
-                    else str(refresh_exp).split(" ")[0])
-        print(
-            Panel.fit(
-                f"Tokens stored securely until {exp_text}",
-                style="bold bright_green",
-                border_style="grey70",
-                title=Text("Session Info", style=epic_style),
-                subtitle=None,
-            ),
-            justify="center",
             end="\n\n"
         )
 

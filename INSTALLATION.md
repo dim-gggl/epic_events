@@ -1,150 +1,119 @@
-## Prerequisites
+# Installation du CRM Epic Events
 
-Before running the application, ensure you have the following prerequisites installed and configured:
+Ce guide détaille les étapes pour installer et configurer l'application CRM Epic Events en local.
 
-### PostgreSQL Database
+## 1. Prérequis
 
-1. **Install PostgreSQL** (version 14 or higher)  
+Avant de commencer, assurez-vous d'avoir les éléments suivants installés sur votre machine :
 
-   - **macOS**: `brew install postgresql`
-   - **Ubuntu/Debian**: `sudo apt-get install postgresql postgresql-contrib`
-   - **Windows**: Download from [postgresql.org](https://www.postgresql.org/download/windows/)
+- **Python** (version 3.9 ou supérieure)
+- **uv**: Un gestionnaire de paquets et d'environnements virtuels Python rapide. Si vous ne l'avez pas, installez-le avec pip :
+  ```bash
+  pip install uv
+  ```
+- **PostgreSQL**: Un serveur de base de données PostgreSQL fonctionnel.
 
-2. **Start PostgreSQL service**  
+## 2. Clonage du Dépôt
 
-   - **macOS**: `brew services start postgresql@14`
-   - **Linux**: `sudo systemctl start postgresql`
-   - **Windows**: Start the PostgreSQL service from Services or use pgAdmin
-
-3. **Create a database and user**
-```sql
--- Connect to PostgreSQL as superuser
-sudo psql -d postgres
-
--- Create the owner role of the database
-CREATE ROLE epic_events_owner NOLOGIN;
-
--- Create Database
-CREATE DATABASE epic_events_db 
-OWNER epic_events_owner;
-
--- Connection to the new database
-\c epic_events_db
-
--- Revoke rights to create in public mode
-REVOKE CREATE 
-ON SCHEMA public 
-FROM PUBLIC;
-
-GRANT USAGE 
-ON SCHEMA public 
-TO PUBLIC;
-
--- Create a schema for the app
-CREATE SCHEMA epic_events 
-AUTHORIZATION epic_events_owner;
-
-ALTER ROLE epic_events_owner 
-SET search_path 
-TO epic_events, public;
-
--- Grant privileges
-GRANT ALL PRIVILEGES 
-ON DATABASE epic_events_db 
-TO epic_user_owner;
-
--- Exit
-\q
-```
-```bash
-psql -h 127.0.0.1 -p 5432 -U epic_user_owner -d epic_events_db
-```
-
-```sql
--- Create the user
-CREATE ROLE epic_events_app
-LOGIN 
-PASSWORD '<the-common-password>'
-NOSUPERUSER NOCREATEDB 
-NOCREATEROLE NOREPLICATION;
-
--- Give access and rights on the schema
-GRANT USAGE 
-ON SCHEMA epic_events 
-TO epic_events_app;
-
-GRANT SELECT, 
-INSERT, UPDATE, 
-DELETE ON ALL TABLES 
-IN SCHEMA epic_events 
-TO epic_events_app;
-
-ALTER DEFAULT PRIVILEGES
-FOR ROLE epic_events_owner 
-IN SCHEMA epic_events
-GRANT SELECT, 
-INSERT, UPDATE, 
-DELETE ON TABLES 
-TO epic_events_app;
-
--- Limit the db access to the app users
-REVOKE CONNECT 
-ON DATABASE epic_events_db 
-FROM PUBLIC;
-
-GRANT CONNECT 
-ON DATABASE epic_events_db
-TO epic_events_app, 
-epic_events_owner;
-```
-   Now the database is ready to be used.
-
-4. **Configure environment variables**  
-
-Create a `.env` file in the project root with the following variables:
-```env
-POSTGRES_USER=epic_user_app
-POSTGRES_PASSWORD=your_password
-POSTGRES_HOST=127.0.0.1
-POSTGRES_PORT=5432
-POSTGRES_DB=epic_events_db
-
-```
-   
-Alternatively, you can set the `DATABASE_URL` environment variable:
-```env
-export DATABASE_URL=postgresql+psycopg://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
-echo "DATABASE_URL="$DATABASE_URL >> .env
-```
-
-## Installation
-
-### 1. Clonez le dépôt et placez-vous à la racine du projet  
+Clonez le projet depuis son dépôt Git :
 
 ```bash
-git clone https://github.com/dim-gggl/epic_events && cd epic_events
+git clone https://github.com/votre-utilisateur/epic_events.git
+cd epic_events
 ```
 
-### 2. Créez et activez un environnement Python, puis installez le projet et ses dépendances:
+## 3. Configuration de l'Environnement Python
 
-- Si vous utilisez `uv` (**recommandé**) :
+Nous utilisons `uv` pour créer un environnement virtuel isolé et installer les dépendances.
+
+1.  **Créer l'environnement virtuel** :
+    ```bash
+    uv venv
+    ```
+    Cette commande crée un dossier `.venv` dans le projet.
+
+2.  **Activer l'environnement** :
+    - Sur macOS/Linux :
+      ```bash
+      source .venv/bin/activate
+      ```
+    - Sur Windows :
+      ```bash
+      .venv\Scripts\activate
+      ```
+
+3.  **Installer les dépendances** :
+    Utilisez `uv` pour installer les dépendances listées dans `pyproject.toml` :
+    ```bash
+    uv pip install -e .
+    ```
+    L'option `-e` installe le projet en mode "éditable", ce qui est recommandé pour le développement.
+
+## 4. Configuration de la Base de Données
+
+1.  **Créez un utilisateur et une base de données** dans PostgreSQL. Par exemple, en utilisant `psql` :
+    ```sql
+    CREATE DATABASE epic_events_db;
+    CREATE USER epic_events_app WITH PASSWORD 'votre_mot_de_passe_securise';
+    GRANT ALL PRIVILEGES ON DATABASE epic_events_db TO epic_events_app;
+    ```
+
+2.  **Configurez les variables d'environnement** :
+    - Copiez le fichier d'exemple :
+      ```bash
+      cp .env.example .env
+      ```
+    - Ouvrez le fichier `.env` et modifiez les valeurs pour correspondre à votre configuration PostgreSQL. Assurez-vous également de définir une `SECRET_KEY` forte pour la sécurité des jetons JWT.
+
+    ```ini
+    # .env
+    POSTGRES_USER=epic_events_app
+    POSTGRES_PASSWORD=votre_mot_de_passe_securise
+    POSTGRES_HOST=127.0.0.1
+    POSTGRES_PORT=5432
+    POSTGRES_DB=epic_events_db
+
+    DATABASE_URL=postgresql+psycopg://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
+
+    # Clé secrète pour les jetons JWT (utilisez une chaîne aléatoire et complexe)
+    SECRET_KEY="remplacer_par_une_cle_secrete_forte"
+
+    # Optionnel : DSN pour l'intégration Sentry
+    SENTRY_DSN=""
+    ```
+	>**Astuce** Vous pouvez générer la `SECRET_KEY` sur [ClinKey](https://dim-gggl.github.io/ClinKey/) 
+
+## 5. Initialisation de l'Application
+
+1.  **Créer les tables de la base de données** :
+    Cette commande initialise le schéma de la base de données et insère les rôles et permissions par défaut.
+    ```bash
+    python epic_events.py db-create
+    ```
+
+2.  **Créer le premier utilisateur (Manager)** :
+    Pour administrer l'application, vous devez créer un utilisateur avec le rôle "Management". Cette opération nécessite des privilèges élevés car elle crée le premier administrateur.
+
+    - Sur macOS/Linux :
+      ```bash
+      sudo python epic_events.py manager-create
+      ```
+    - Sur Windows, lancez votre terminal en tant qu'administrateur avant d'exécuter :
+      ```bash
+      python epic_events.py manager-create
+      ```
+    Suivez les instructions pour définir le nom d'utilisateur, le nom complet et l'email. Le mot de passe vous sera demandé de manière sécurisée.
+
+## 6. Lancement de l'Application
+
+Vous êtes prêt ! Pour commencer à utiliser l'application, connectez-vous avec l'utilisateur que vous venez de créer.
+
 ```bash
-uv sync
-
-# or uv venv && source .venv/bin/activate && uv pip install -e .
+python epic_events.py login
 ```
 
-- Sinon :
+Pour voir toutes les commandes disponibles, utilisez l'aide intégrée :
+
 ```bash
-python3 -m venv .venv 
-source .venv/bin/activate  # On Linux/macOS
-.venv\Scripts\activate     # On Windows
+python epic_events.py --help
 ```
-
-
-
-### Python Environment
-- Python 3.10, 3.11, 3.12, 3.13, or 3.14
-- Virtual environment (recommended)
-
-## Everything is ready to continue to the [Quick Start guide](./README.md#demarrage-rapide)

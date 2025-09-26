@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from sqlalchemy import inspect
 
@@ -19,24 +19,47 @@ session = Session()
 helper_view = HelperView()
 
 
-class EntityController(ABC):
+
+class Controller(ABC):
+	@abstractmethod
+	def create(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def get_list(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def view(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def update(self, *args, **kwargs):
+		pass
+
+	@abstractmethod
+	def delete(self, *args, **kwargs):
+		pass
+
+class EntityController(Controller):
     """
-    An abstract controller class to manipulate a specific instance of
+    A base controller class to manipulate a specific instance of
     any of the CRM classes.
     Makes the bridge between manager and view in order to proceed to any
     CRUD operation.
 
     params:
         - entity: class [User | Client | Contract | Event | Company]
-        Represents the class of the objects this controller is organizing.
+        	Represents the class of the objects this controller is organizing.
         - fields: list[str]
-        Represents the list of attributes that must be displayed when we call
-        for list or view on self.entity.
+        	Represents the list of attributes that must be displayed when we call
+        	for list or view on self.entity.
         - entity_name: str.
-        A lower-case string version of the name of the class of self.entity
-        manager: EntityManager
-        Represents an instance of manager pointing towards the same model
-        that will handle the moves from the business logic side.
+        	A lower-case string version of the name of the class of self.entity
+        - manager: EntityManager
+        	Represents an instance of manager pointing towards the same model
+        	that will handle the moves from the business logic side.
+        
     """
     def __init__(self, entity: type, fields: list[str] | None=None):
         self.entity = entity
@@ -47,7 +70,6 @@ class EntityController(ABC):
         self.manager = get_manager_for(self.entity_name)
         self.required_fields = self._get_required_fields()
 
-
     def _get_required_fields(self):
         """
         Gets the list of required fields for an entity by inspecting the model.
@@ -57,15 +79,59 @@ class EntityController(ABC):
         required_fields = []
 
         for column in mapper.columns:
-            # Skip auto-generated fields (primary keys with autoincrement, timestamps with server_default)
+            # Skip auto-generated fields (primary keys with autoincrement,
+			# timestamps with server_default)
             # But include user-input fields that are nullable=False
-            if (column.nullable is False and
-                not (column.primary_key and column.autoincrement) and
-                not column.server_default and
-                column.name not in ['id', 'created_at', 'updated_at', 'commercial_id']):
+            if (column.nullable is False
+			and not (column.primary_key and column.autoincrement)
+			and not column.server_default
+			and column.name not in ['id',
+									'created_at',
+									'updated_at',
+									'commercial_id']):
                 required_fields.append(column.name)
-
         return required_fields
+
+    def _validate_entity_data(self, service: DataService, data: dict) -> dict | None:
+        """
+        Validate entity data using appropriate DataService validator.
+        Returns validated data or None if validation fails.
+        """
+        match self.entity_name:
+            case "user":
+                return service.validate_and_normalize_user_data(data)
+            case "client":
+                return service.validate_and_normalize_client_data(data)
+            case "company":
+                return service.validate_and_normalize_company_data(data)
+            case "contract":
+                return service.validate_and_normalize_contract_data(data)
+            case "event":
+                return service.validate_and_normalize_event_data(data)
+            case _:
+                # For entities without specialized validation, return as-is
+                return data
+
+    def _validate_entity_data_for_update(self, service: DataService, data: dict, entity_id: int) -> dict | None:
+        """
+        Validate entity data for updates using appropriate DataService validator.
+        Excludes current entity ID from uniqueness checks.
+        Returns validated data or None if validation fails.
+        """
+        match self.entity_name:
+            case "user":
+                return service.validate_and_normalize_user_data(data, exclude_user_id=entity_id)
+            case "client":
+                return service.validate_and_normalize_client_data(data, exclude_client_id=entity_id)
+            case "company":
+                return service.validate_and_normalize_company_data(data)
+            case "contract":
+                return service.validate_and_normalize_contract_data(data)
+            case "event":
+                return service.validate_and_normalize_event_data(data)
+            case _:
+                # For entities without specialized validation, return as-is
+                return data
 
     @in_session(session)
     def create(self, *args, **kwargs):
@@ -76,10 +142,8 @@ class EntityController(ABC):
         kwargs for named values. If a required field is
         missing, prompt the user.
         """
-        # Prepare data dictionary from kwargs, filtering out None values for optional fields
-        data = {k: v for k, v in kwargs.items() if v}
+        data = {k: v for k, v in kwargs.items()}
 
-        # Fill data from positional args if not already present
         for i, arg in enumerate(args):
             if i < len(self.required_fields):
                 field_name = self.required_fields[i]
@@ -87,13 +151,14 @@ class EntityController(ABC):
                     data[field_name] = arg
             else:
                 view.error_message(
-                    f"Argument '{arg}' does not match any field in {self.entity_name}."
+                    f"Argument '{arg}' does not match "
+					f"any field in {self.entity_name}."
                 )
 
         # Prompt user for any missing required fields
         for field in self.required_fields:
             if field not in data or not data[field]:
-                prompt = f"'{field.replace('_', ' ').title()}' : "
+                prompt = f"{field.replace('_', ' ').title()} : "
                 user_input = view.get_input(prompt).strip()
                 data[field] = user_input
 
@@ -107,6 +172,12 @@ class EntityController(ABC):
             if phone:
                 data['phone'] = phone
 
+        # Validate and normalize data using DataService
+        service = DataService(view)
+        validated_data = self._validate_entity_data(service, data)
+        if validated_data is None:
+            return None  # Validation failed, error already displayed
+
         # Attempt to create the entity
         try:
             user_info = get_user_info_from_token()
@@ -116,11 +187,11 @@ class EntityController(ABC):
 
             # Special cases for managers that require additional parameters
             if self.entity_name == "client":
-                new_obj = self.manager.create(data, user_info['user_id'])
+                new_obj = self.manager.create(validated_data, user_info['user_id'])
             elif self.entity_name == "event":
-                new_obj = self.manager.create(data, user_info)
+                new_obj = self.manager.create(validated_data, user_info)
             else:
-                new_obj = self.manager.create(data)
+                new_obj = self.manager.create(validated_data)
             view.success_message(f"{self.entity_name} created successfully.")
             return new_obj
         except Exception as e:
@@ -141,12 +212,11 @@ class EntityController(ABC):
         if not elements:
             view.wrong_message(f"No {self.entity_name}s found.")
             return
-        for element in elements:
-            view.display_details(element, fields)
+        view.display_list(elements, fields)
 
     @in_session(session)
     def view(self, id: int, fields: list[str]=None):
-        obj = self.manager.view(id)
+        obj = self.manager.get_instance(id)
         if obj:
             view.display_details(obj, fields or self.fields)
         else:
@@ -154,12 +224,20 @@ class EntityController(ABC):
 
     @in_session(session)
     def update(self, id: int, *args, fields: list[str]=None, **kwargs):
-        entity = self.manager.view(id)
+        entity = self.manager.get_instance(id)
         if not entity:
             view.error_message(f"{self.entity_name} with id {id} not found.")
             return None
-        for k, v in kwargs.items():
-            if k in fields:
+
+        # Validate and normalize update data using DataService
+        service = DataService(view)
+        validated_data = self._validate_entity_data_for_update(service, kwargs, id)
+        if validated_data is None:
+            return None  # Validation failed, error already displayed
+
+        fields = fields or self.fields
+        for k, v in validated_data.items():
+            if k in fields and v is not None:
                 setattr(entity, k, v)
         session.add(entity)
         session.commit()
@@ -169,9 +247,8 @@ class EntityController(ABC):
 
     @in_session(session)
     def delete(self, id:int, fields: list[str]=None) -> bool:
-        from src.auth.jwt.token_storage import get_user_info_from_token
 
-        entity = self.manager.view(id)
+        entity = self.manager.get_instance(id)
         if not entity:
             view.wrong_message(
                 f"{self.entity_name} with id {id} not found."
@@ -215,7 +292,7 @@ class ClientController(EntityController):
         """
         Create a new client - phone field is handled as optional in parent method.
         """
-        # Call parent create method
+        
         return super().create(*args, **kwargs)
 
 

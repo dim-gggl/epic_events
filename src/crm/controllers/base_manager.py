@@ -1,14 +1,38 @@
+from abc import ABC, abstractmethod
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from src.auth.decorators import login_required
+from src.auth.decorators import login_required, in_session
 from src.data_access.config import Session
 from src.exceptions import InvalidIdError
 
+session = Session()
 
-class EntityManager:
+
+class Manager(ABC):
+	@abstractmethod
+	def create(self, data: dict):
+		pass
+
+	@abstractmethod
+	def get_list(self):
+		pass
+
+	@abstractmethod
+	def get_instance(self, id: int):
+		pass
+
+	@abstractmethod
+	def update(self, id: int, data: dict):
+		pass
+
+	@abstractmethod
+	def delete(self, id: int):
+		pass
+
+
+class EntityManager(Manager):
     """
     A base class for object persistence operations.
     It provides CRUD operations for a given Python entity where
@@ -29,20 +53,21 @@ class EntityManager:
         self.entity = entity
         self.name = entity.__name__.lower()
 
+    @in_session(session)
     def create(self, data: dict):
-        with Session() as session:
-            new_instance = self.entity(**data)
-            session.add(new_instance)
-            session.commit()
-            session.refresh(new_instance)
-            return new_instance
+        new_instance = self.entity(**data)
+        session.add(new_instance)
+        session.commit()
+        session.refresh(new_instance)
+        return new_instance
 
+    @in_session(session)
     @login_required
-    def list(self):
-        with Session() as session:
-            return session.scalars(select(self.entity)).all()
+    def get_list(self):
+        return session.query(self.entity).all()
 
-    def view(self, id: int, session: Session = None):
+    @in_session(session)
+    def get_instance(self, id: int, session: Session = None):
         """
         View an instance of the entity by its id.
 
@@ -53,17 +78,10 @@ class EntityManager:
         Returns:
             The entity instance or None if not found.
         """
-        if session:
-            return session.scalars(
-                select(self.entity).filter(self.entity.id == id)
-            ).first()
-        else:
-            with Session() as new_session:
-                return new_session.scalars(
-                    select(self.entity).filter(self.entity.id == id)
-                ).first()
+        return session.query(self.entity).filter(self.entity.id == id).first()
 
-    def get_by_id(self, id: int, session: Session = None):
+    @in_session(session)
+    def get_by_id(self, id: int):
         """
         Get an instance of the entity by its id.
 
@@ -74,13 +92,14 @@ class EntityManager:
         Raises:
             - InvalidIdError if the entity is not found.
         """
-        entity = self.view(id, session)
+        entity = self.get_instance(id)
         if not entity:
             raise InvalidIdError(
                 f"{self.entity.__name__} with id {id} not found"
             )
         return entity
 
+    @in_session(session)
     def update(self, id: int, data: dict):
         """
         Update an instance of the entity by its id.
@@ -93,19 +112,19 @@ class EntityManager:
             The updated entity.
             None if the entity is not found.
         """
-        with Session() as session:
-            try:
-                entity = self.get_by_id(id, session)
-                for key, value in data.items():
-                    setattr(entity, key, value)
-                session.add(entity)
-                session.commit()
-                session.refresh(entity)
-                return entity
-            except InvalidIdError as e:
-                print(e)
-                return
+        try:
+            entity = self.get_by_id(id)
+            for key, value in data.items():
+                setattr(entity, key, value)
+            session.add(entity)
+            session.commit()
+            session.refresh(entity)
+            return entity
+        except InvalidIdError as e:
+            print(e)
+            return
 
+    @in_session(session)
     def delete(self, id: int) -> bool:
         """
         Delete the instance from the database and commit
@@ -118,13 +137,12 @@ class EntityManager:
             - bool.
             Usage : is_deleted = manager.delete(instance_)
         """
-        with Session() as session:
-            try:
-                entity = self.get_by_id(id, session)
-                session.delete(entity)
-                session.commit()
-                return True
-            except InvalidIdError:
-                raise InvalidIdError(
-                    "Incorrect ID.\nImpossible to delete instance of Nonetype"
-                )
+        try:
+            entity = self.get_by_id(id)
+            session.delete(entity)
+            session.commit()
+            return True
+        except InvalidIdError:
+            raise InvalidIdError(
+                "Incorrect ID.\nImpossible to delete instance of Nonetype"
+            )

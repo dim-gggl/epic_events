@@ -8,13 +8,13 @@ SECRET_KEY = get_secret_key()
 def verify_access_token(token: str) -> dict:
     """
     Verify JWT access token and return payload.
-    
+
     Args:
         token: JWT access token string
-        
+
     Returns:
         dict: Token payload containing user information
-        
+
     Raises:
         InvalidTokenError: If the token is invalid or missing required fields.
         ExpiredTokenError: If the token has expired.
@@ -27,8 +27,9 @@ def verify_access_token(token: str) -> dict:
             raise InvalidTokenError("Token missing required fields.")
         return payload
     except jwt.ExpiredSignatureError as e:
-        raise e(f"Token has expired: {e}")
+        from src.exceptions import ExpiredTokenError
+        raise ExpiredTokenError(f"Token has expired: {e}")
     except InvalidTokenError as e:
-        raise e(f"Invalid token: {e}")
+        raise InvalidTokenError(f"Invalid token: {e}")
     except Exception as e:
-        raise e(f"Token verification failed: {e}")
+        raise InvalidTokenError(f"Token verification failed: {e}")

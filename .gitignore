@@ -18,3 +18,7 @@ venv/
 *.dev/
 '.*.dev/'
 migrations/
+.uv-cache/
+.ruff-cache/
+*/*_alt.*
+*/*_alt_.*

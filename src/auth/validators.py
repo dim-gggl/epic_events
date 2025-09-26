@@ -20,11 +20,12 @@ from src.auth.settings import (
 from src.auth.settings import (
     USERNAME_MIN_LENGTH as username_min_lgt,
 )
-from src.crm.models import User
+from src.crm.models import User, Client
 from src.data_access.config import Session
 
 __all__ = ["is_valid_email", "is_valid_username", "is_valid_password",
-           "is_valid_role_id", "is_valid_phone"]
+           "is_valid_role_id", "is_valid_phone", "is_email_globally_unique",
+           "is_phone_globally_unique", "is_username_globally_unique"]
 
 
 def is_valid_email(value: str) -> bool:
@@ -103,3 +104,46 @@ def is_valid_phone(phone: str) -> bool:
         print(e)
         return False
     return phonenumbers.is_valid_number(parsed)
+
+
+# Global uniqueness validators across all entities
+
+def is_email_globally_unique(email: str, exclude_user_id: int = None, exclude_client_id: int = None) -> bool:
+    """Validate that an email is not already used by any User or Client."""
+    with Session() as session:
+        # Check Users table
+        user_query = select(User).filter(User.email == email)
+        if exclude_user_id:
+            user_query = user_query.filter(User.id != exclude_user_id)
+        if session.scalar(user_query):
+            return False
+
+        # Check Clients table
+        client_query = select(Client).filter(Client.email == email)
+        if exclude_client_id:
+            client_query = client_query.filter(Client.id != exclude_client_id)
+        if session.scalar(client_query):
+            return False
+
+        return True
+
+
+def is_phone_globally_unique(phone: str, exclude_client_id: int = None) -> bool:
+    """Validate that a phone number is not already used by any Client."""
+    if not phone:
+        return True  # Empty phone is allowed
+
+    with Session() as session:
+        query = select(Client).filter(Client.phone == phone)
+        if exclude_client_id:
+            query = query.filter(Client.id != exclude_client_id)
+        return not session.scalar(query)
+
+
+def is_username_globally_unique(username: str, exclude_user_id: int = None) -> bool:
+    """Validate that a username is not already used by any User."""
+    with Session() as session:
+        query = select(User).filter(User.username == username)
+        if exclude_user_id:
+            query = query.filter(User.id != exclude_user_id)
+        return not session.scalar(query)

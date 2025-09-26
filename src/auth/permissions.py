@@ -10,15 +10,14 @@ ORDERED_DEFAULT_ROLES: list[str] = ["management", "commercial", "support"]
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "support": [
-        # Accès lecture à tous les clients, contrats, événements et companies pour assigner support
-        "client:list", "client:view",
-        "contract:list", "contract:view",
-        "event:list", "event:view", "event:update:assigned",
-        "company:list", "company:view",
+        # Support ne peut accéder qu'aux données liées à ses événements assignés
+        "client:view:assigned_events", "contract:view:assigned_events",
+        "event:list:assigned", "event:view:assigned", "event:update:assigned",
+        "company:view:assigned_events",
     ],
     "commercial": [
-        # Accès complet aux clients, contrats et événements + création companies
-        "client:list", "client:view", "client:create", "client:update:own",
+        # Accès complet aux propres clients, contrats et événements + création companies
+        "client:list", "client:view", "client:create", "client:update:own", "client:delete:own",
         "contract:list", "contract:view", "contract:create", "contract:update:own",
         "event:list", "event:view", "event:create:own_client",
         "company:list", "company:view", "company:create",
@@ -30,17 +29,44 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         # Supervision clients (lecture seule - pas de modification des relations commerciales)
         "client:list", "client:view",
         # Gestion contrats avec contraintes (client-commercial déjà liés)
-        "contract:list", "contract:view", "contract:create:existing_relation", "contract:update", "contract:delete",
+        "contract:list", "contract:view", "contract:create:existing_relation",
+        "contract:update", "contract:delete",
         # Gestion événements avec contraintes (contrat signé uniquement)
-        "event:list", "event:view", "event:create:signed_contract", "event:update", "event:delete",
+        "event:list", "event:view", "event:create:signed_contract",
+        "event:update", "event:delete", "event:assign_support",
         # Gestion complète des entreprises
         "company:list", "company:view", "company:create", "company:update", "company:delete"
     ],
 }
 
-ROLE_ID_TO_NAME: dict[int, str] = {1: "management", 2: "commercial", 3: "support"}
+ROLE_ID_TO_NAME: dict[int, str] = {4: "management", 5: "commercial", 6: "support"}
+
+# Role constants for robust comparison
+class UserRoles:
+    MANAGEMENT = "management"
+    COMMERCIAL = "commercial"
+    SUPPORT = "support"
 
 # Helper functions
+def get_user_role_name_from_token() -> str:
+    """
+    Get user role name from JWT token in a robust way.
+    Uses role name instead of fragile role_id for business logic.
+
+    Returns:
+        str: Role name ('management', 'commercial', 'support') or 'unknown'
+    """
+    access_token = get_access_token()
+    if not access_token:
+        return 'unknown'
+
+    try:
+        user_id, role_id = get_user_id_and_role_from_token(access_token)
+        role_name = ROLE_ID_TO_NAME.get(role_id, 'unknown')
+        return role_name
+    except Exception:
+        return 'unknown'
+
 def get_user_id_and_role_from_token(access_token: str) -> tuple[int, int]:
     if not access_token:
         raise PermissionError("Authentication token is missing.")
@@ -69,15 +95,49 @@ def has_permission(access_token: str, required_permission: str) -> bool:
         role_id = get_user_id_and_role_from_token(access_token)[1]
         perms = _permissions_from_db(role_id)
         if perms:
-            return required_permission in perms
+            return _check_permission_match(required_permission, perms)
 
         role_name = ROLE_ID_TO_NAME.get(role_id)
         if not role_name:
             return False
         role_permissions = DEFAULT_ROLE_PERMISSIONS.get(role_name, [])
-        return required_permission in role_permissions
+        return _check_permission_match(required_permission, role_permissions)
     except Exception:
         return False
+
+def _check_permission_match(required: str, available_permissions: list[str]) -> bool:
+    """
+    Check if required permission matches any of the available permissions.
+    Supports both exact matches and wildcard matching for specialized permissions.
+
+    Examples:
+    - required="client:update", available=["client:update:own"] -> True (specialized covers general)
+    - required="client:update:own", available=["client:update"] -> True (general covers specialized)
+    - required="client:update:other", available=["client:update:own"]
+      -> False (different specializations)
+    """
+    # Direct match
+    if required in available_permissions:
+        return True
+
+    # Check if a specialized permission covers the general permission
+    required_parts = required.split(':')
+    if len(required_parts) >= 2:
+        base_permission = ':'.join(required_parts[:2])  # "client:update"
+
+        # If asking for general permission, check if any specialized version is available
+        if len(required_parts) == 2:  # General permission like "client:update"
+            specialized_perms = [
+                p for p in available_permissions
+                if p.startswith(base_permission + ':')
+            ]
+            return len(specialized_perms) > 0
+
+        # If asking for specialized permission, check if general permission is available
+        else:  # Specialized permission like "client:update:own"
+            return base_permission in available_permissions
+
+    return False
 
 # Decorators
 def login_required(func):

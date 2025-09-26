@@ -1,4 +1,7 @@
-from src.auth.jwt.token_storage import cleanup_token_file, get_user_info_from_token
+from src.auth.jwt.token_storage import (
+    cleanup_token_file,
+    get_user_info_from_token,
+)
 from src.crm.views.views import MainView
 from src.data_access.config import Session
 

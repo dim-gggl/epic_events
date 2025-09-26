@@ -4,10 +4,8 @@ import tempfile
 from datetime import UTC, datetime
 from typing import Any
 
-from src.crm.views.views import MainView
+from src.crm.views.views import view
 from src.settings import TEMP_FILE_PATH
-
-view = MainView()
 
 # If not assigned, TEMP_FILE_PATH is set to None. In this case,
 # the temporary file is created in the system folder.
@@ -17,7 +15,7 @@ _auth_location: str | None = TEMP_FILE_PATH
 def _get_auth_location() -> str:
     """Get or create the temporary token file path."""
     global _auth_location
-    if _auth_location is None:
+    if not _auth_location:
         temp_dir = tempfile.gettempdir()
         _auth_location = os.path.join(temp_dir,
                                       'epic_events_session.jwt')
@@ -82,7 +80,7 @@ def get_stored_token() -> dict[str, Any] | None:
             cleanup_token_file()
             return None
         return token_data
-    except json.JSONDecodeError as e:                                             # type: ignore
+    except json.JSONDecodeError as e:
         view.wrong_message(f"Decode error: {e}")
         cleanup_token_file()
         return None

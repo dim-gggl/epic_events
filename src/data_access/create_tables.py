@@ -2,7 +2,10 @@ import sentry_sdk
 from sqlalchemy import MetaData, inspect, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from src.auth.permissions import DEFAULT_ROLE_PERMISSIONS, ORDERED_DEFAULT_ROLES
+from src.auth.permissions import (
+    DEFAULT_ROLE_PERMISSIONS,
+    ORDERED_DEFAULT_ROLES,
+)
 from src.crm.models import PermissionModel, Role
 from src.data_access.config import Session, engine, metadata
 

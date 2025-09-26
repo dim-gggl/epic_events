@@ -21,8 +21,8 @@ attach_help(contract)
 @click.option("--commercial-id", help="Commercial ID", required=False)
 @click.option("--total-amount", help="Total amount", required=False)
 @click.option("--remaining-amount", help="Remaining amount", required=False)
-@click.option("--is-signed", help="Is signed", required=False)
-@click.option("--is-fully-paid", help="Is fully paid", required=False)
+@click.option("--is-signed", type=click.BOOL, help="Is signed", required=False)
+@click.option("--is-fully-paid", type=click.BOOL, help="Is fully paid", required=False)
 def contract_create(client_id,
                     commercial_id,
                     total_amount,
@@ -72,8 +72,8 @@ def contract_view(contract_id):
 @click.option("--commercial-id", help="Commercial ID", required=False)
 @click.option("--total-amount", help="Total amount", required=False)
 @click.option("--remaining-amount", help="Remaining amount", required=False)
-@click.option("--is-signed", help="Is signed", required=False)
-@click.option("--is-fully-paid", help="Is fully paid", required=False)
+@click.option("--is-signed", type=click.BOOL, help="Is signed", required=False)
+@click.option("--is-fully-paid", type=click.BOOL, help="Is fully paid", required=False)
 def contract_update(contract_id, client_id, commercial_id, total_amount, remaining_amount, is_signed, is_fully_paid):
     main_controller.update_contract(
         contract_id,

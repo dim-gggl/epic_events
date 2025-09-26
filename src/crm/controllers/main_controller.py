@@ -76,51 +76,54 @@ class MainController:
         # Collect and validate data through the service layer
         username = self._check_on_value_and_normalize(username,
                                                       self.view.get_username,
-                                                      service.normalized_username)
+                                                      lambda u: service.normalized_username(u))
+        user_data = {}
         if not username:
             self.view.error_message("Invalid username")
             return
+        else:
+            user_data["username"] = username
 
-        full_name = self._check_on_value_and_normalize(full_name,
+        full_name = self._check_on_value_and_normalize(full_name,  # pyright: ignore[reportUnreachable]
                                                       self.view.get_full_name,
                                                       service.normalized_free_text)
         if not full_name:
             self.view.error_message("Invalid full name")
             return
+        else:
+        	user_data["full_name"] = full_name
 
         email = self._check_on_value_and_normalize(email,
                                                   self.view.get_email,
-                                                  service.normalized_email)
+                                                  lambda e: service.normalized_email(e))
         if not email:
             self.view.error_message("Invalid email")
             return
+        else:
+            user_data["email"] = email
+
+        password = self._check_on_value_and_normalize(password,
+                                                      self.view.get_password_with_confirmation,
+                                                      lambda p: service.normalized_password(p))
 
         if not password:
-            password = self.view.get_password_with_confirmation()
+            self.view.error_message("Invalid password")
+            return
+        else:
+            user_data["password"] = password
+
 
         if not role_id:
-            role_id = self.view.get_role_id()
-
-        # Convert position-based role_id to actual database ID
-        role_id = service.normalized_role_id(role_id)
-        if role_id:
-            # If user provided 1, 2, or 3, convert to actual DB ID
-            if role_id in [1, 2, 3]:
-                actual_role_id = service.get_role_id_by_position(role_id)
-                if not actual_role_id:
-                    self.view.wrong_message("Role not found in database")
-                    return
-                role_id = actual_role_id
-        else:
-            self.view.wrong_message("Invalid role ID")
+            self.view.error_message("Invalid role ID")
             return
+        else:
+            user_data["role_id"] = role_id
 
-        # Prepare data for manager - password will be hashed by UserManager
         user_data = {
             "username": username,
             "full_name": full_name,
             "email": email,
-            "password": password,  # Will be hashed by UserManager
+            "password": password,
             "role_id": role_id
         }
 
@@ -172,16 +175,14 @@ class MainController:
     @handle_permission_errors
     @login_required
     @require_permission("user:update")
-    def update_user(self, **kwargs):
-        self.user_c.update(**kwargs)
+    def update_user(self, user_id: int, **kwargs):
+        self.user_c.update(user_id, **kwargs)
 
     @handle_permission_errors
     @login_required
     @require_permission("user:list")
     def list_users(self, management=False, commercial=False, support=False):
-        # For now, just call the basic list method
-        # TODO: Implement role-based filtering if needed
-        self.user_c.get_list()
+        self.user_c.get_list(management=management, commercial=commercial, support=support)
 
     @handle_permission_errors
     @login_required
@@ -199,14 +200,12 @@ class MainController:
     @login_required
     @require_permission("client:create")
     def create_client(self, **kwargs):
-        # Seuls les commerciaux peuvent créer des clients
         self.client_c.create(**kwargs)
 
     @handle_permission_errors
     @login_required
-    @require_permission("client:update")
+    @require_permission("client:update:own")
     def update_client(self, client_id: int, **kwargs):
-        # Seuls les commerciaux peuvent modifier leurs clients
         user_info = get_user_info_from_token()
         if not user_info:
             self.view.error_message("You must be logged in to update a client.")
@@ -222,13 +221,11 @@ class MainController:
             self.view.error_message("You must be logged in to list clients.")
             return
 
-        # Use EntityController's get_list but pass the special parameters needed for ClientManager
         clients = self.client_c.manager.list(user_info['user_id'], filtered=only_mine)
         if not clients:
             self.view.wrong_message("No clients found.")
             return
 
-        # Display the clients as a list
         self.view.display_clients(clients)
 
     @handle_permission_errors
@@ -241,25 +238,27 @@ class MainController:
     @login_required
     @require_permission("client:delete")
     def delete_client(self, client_id: int):
-        # Seuls les commerciaux peuvent supprimer leurs clients
         self.client_c.delete(client_id)
 
     @handle_permission_errors
     @login_required
     @require_permission("contract:create")
     def create_contract(self, **kwargs):
-        # Commerciaux: création libre, Managers: seulement si client-commercial déjà liés
         self.contract_c.create(**kwargs)
 
     @handle_permission_errors
     @login_required
-    @require_permission("contract:update")
+    @require_permission("contract:update:own")
     def update_contract(self, contract_id: int, **kwargs):
         user_info = get_user_info_from_token()
         if not user_info:
             self.view.error_message("You must be logged in to update a contract.")
             return
-        return self.contract_c.manager.update(contract_id, kwargs, user_info['user_id'])
+        try:
+            return self.contract_c.manager.update(contract_id, kwargs, user_info['user_id'])
+        except ValueError as exc:
+            self.view.error_message(str(exc))
+            return
 
     @handle_permission_errors
     @login_required
@@ -282,8 +281,7 @@ class MainController:
             return
 
         fields = self.contract_c.fields or self.contract_c._get_list_fields()
-        for contract in contracts:
-            self.view.display_details(contract, fields)
+        self.view.display_list(contracts, fields)
 
     @handle_permission_errors
     @login_required
@@ -301,12 +299,11 @@ class MainController:
     @login_required
     @require_permission("event:create")
     def create_event(self, **kwargs):
-        # Commerciaux: pour leurs clients, Managers: seulement si contrat signé
         self.event_c.create(**kwargs)
 
     @handle_permission_errors
     @login_required
-    @require_permission("event:update")
+    @require_permission("event:update:assigned")
     def update_event(self, event_id: int, **kwargs):
         user_info = get_user_info_from_token()
         if not user_info:
@@ -331,8 +328,7 @@ class MainController:
             return
 
         fields = self.event_c.fields or self.event_c._get_list_fields()
-        for event in events:
-            self.view.display_details(event, fields)
+        self.view.display_list(events, fields)
 
     @handle_permission_errors
     @login_required
@@ -348,7 +344,7 @@ class MainController:
 
     @handle_permission_errors
     @login_required
-    @require_permission("event:update")
+    @require_permission("event:assign_support")
     def assign_support_to_event(self, event_id: int, support_id: int):
         return self.event_c.manager.assign_support(event_id, support_id)
 
@@ -374,8 +370,7 @@ class MainController:
             return
 
         fields = self.company_c.fields or self.company_c._get_list_fields()
-        for company in companies:
-            self.view.display_details(company, fields)
+        self.view.display_list(companies, fields)
 
     @handle_permission_errors
     @login_required
@@ -412,7 +407,6 @@ class MainController:
         if args is None:
             args = {}
 
-        # Collect required user data
         required_fields = {
             "username": args.get("username", None),
             "password": args.get("password", None),
@@ -420,14 +414,11 @@ class MainController:
             "email": args.get("email", None)
         }
 
-        # Prompt for missing fields
         for field, value in required_fields.items():
             if not value:
                 required_fields[field] = self.ask(field)
 
-        # Create the manager user through auth controller
         self.auth_c.manager_create(**required_fields)
 
 
-# Global instance
 main_controller = MainController()
