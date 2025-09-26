@@ -364,7 +364,12 @@ class MainController:
     @login_required
     @require_permission("company:list")
     def list_companies(self):
-        companies = self.company_c.manager.list()
+        user_info = get_user_info_from_token()
+        if not user_info:
+            self.view.error_message("You must be logged in to list companies.")
+            return
+
+        companies = self.company_c.manager.list(user_id=user_info['user_id'])
         if not companies:
             self.view.wrong_message("No companies found.")
             return

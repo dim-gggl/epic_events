@@ -10,9 +10,14 @@ ORDERED_DEFAULT_ROLES: list[str] = ["management", "commercial", "support"]
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "support": [
-        # Support ne peut accéder qu'aux données liées à ses événements assignés
+        # Support peut lister et voir toutes les entités (filtrage dans les managers)
+        "client:list", "client:view",
+        "contract:list", "contract:view",
+        "event:list", "event:view", "event:update:assigned",
+        "company:list", "company:view",
+        # Permissions spécialisées conservées pour compatibilité
         "client:view:assigned_events", "contract:view:assigned_events",
-        "event:list:assigned", "event:view:assigned", "event:update:assigned",
+        "event:list:assigned", "event:view:assigned",
         "company:view:assigned_events",
     ],
     "commercial": [

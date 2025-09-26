@@ -37,7 +37,7 @@ class UserManager(EntityManager):
             ) -> list[User]:
 
 
-        users = super().list()
+        users = super().get_list()
         result = []
 
         name_to_id = {name: role_id for role_id, name in ROLE_ID_TO_NAME.items()}
@@ -321,7 +321,7 @@ class EventManager(EntityManager):
 
         return super().create(data)
 
-    def get_list(self,
+    def list(self,
         	user_id: int,
         	filtered: bool = False,
         	unassigned_only: bool = False) -> list[Event]:
@@ -330,7 +330,13 @@ class EventManager(EntityManager):
         with Session() as session:
             stmt = select(self.entity)
 
-            if user_role == UserRoles.SUPPORT and filtered:
+            if filtered:
+                if user_role == UserRoles.SUPPORT:
+                    stmt = stmt.where(self.entity.support_contact_id == user_id)
+                # Autres filtres spécifiques peuvent être ajoutés ici
+
+            # Support ne peut voir que les événements qui lui sont assignés (par défaut)
+            elif user_role == UserRoles.SUPPORT:
                 stmt = stmt.where(self.entity.support_contact_id == user_id)
 
             if unassigned_only:
@@ -389,6 +395,23 @@ class RoleManager(EntityManager):
 class CompanyManager(EntityManager):
     def __init__(self):
         super().__init__(Company)
+
+    def list(self, user_id: int = None, **kwargs) -> list[Company]:
+        user_role = get_user_role_name_from_token()
+
+        # Support ne peut voir que les entreprises liées à ses événements assignés
+        if user_role == UserRoles.SUPPORT and user_id:
+            with Session() as session:
+                from src.crm.models import Client, Contract, Event
+                stmt = (select(self.entity)
+                        .join(Client)
+                        .join(Contract)
+                        .join(Event)
+                        .where(Event.support_contact_id == user_id))
+                return session.scalars(stmt).all()
+
+        # Pour les autres rôles, utiliser la méthode de base
+        return super().list(**kwargs)
 
 user_manager = UserManager()
 client_manager = ClientManager()

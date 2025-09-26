@@ -1,3 +1,4 @@
+from datetime import datetime
 from src.auth.validators import (
     is_email_globally_unique,
     is_phone_globally_unique,
@@ -216,6 +217,43 @@ class DataService:
 
             return password
 
+    def normalized_date(self, date_str: str) -> datetime | None:
+        """
+        Normalize date strings from various formats to datetime objects.
+        Supports formats: DD/MM/YYYY, YYYY-MM-DD, YYYY-MM-DD HH:MM:SS
+        """
+        if not date_str:
+            return None
+
+        date_str = date_str.strip()
+
+        # Common date formats to try
+        date_formats = [
+            "%d/%m/%Y",           # 21/12/2025
+            "%d/%m/%Y %H:%M",     # 21/12/2025 14:30
+            "%d/%m/%Y %H:%M:%S",  # 21/12/2025 14:30:00
+            "%Y-%m-%d",           # 2025-12-21
+            "%Y-%m-%d %H:%M",     # 2025-12-21 14:30
+            "%Y-%m-%d %H:%M:%S",  # 2025-12-21 14:30:00
+            "%d-%m-%Y",           # 21-12-2025
+            "%d-%m-%Y %H:%M",     # 21-12-2025 14:30
+            "%d-%m-%Y %H:%M:%S",  # 21-12-2025 14:30:00
+        ]
+
+        for date_format in date_formats:
+            try:
+                return datetime.strptime(date_str, date_format)
+            except ValueError:
+                continue
+
+        # If none of the formats work, return None
+        if self.view:
+            self.view.error_message(
+                f"Invalid date format: '{date_str}'. "
+                "Please use DD/MM/YYYY or YYYY-MM-DD format."
+            )
+        return None
+
     # Entity-specific validation methods
 
     def validate_and_normalize_user_data(self, data: dict, exclude_user_id: int = None) -> dict | None:
@@ -306,9 +344,32 @@ class DataService:
                 return None
             validated_data['full_name'] = full_name
 
-        # Copy other fields (company_id, commercial_id, dates, etc.)
+        # Date validation for Client dates
+        if 'first_contact_date' in data:
+            if isinstance(data['first_contact_date'], str):
+                first_contact_date = self.normalized_date(data['first_contact_date'])
+                if not first_contact_date:
+                    if self.view:
+                        self.view.error_message("Invalid first contact date format")
+                    return None
+                validated_data['first_contact_date'] = first_contact_date
+            else:
+                validated_data['first_contact_date'] = data['first_contact_date']
+
+        if 'last_contact_date' in data:
+            if isinstance(data['last_contact_date'], str):
+                last_contact_date = self.normalized_date(data['last_contact_date'])
+                if not last_contact_date:
+                    if self.view:
+                        self.view.error_message("Invalid last contact date format")
+                    return None
+                validated_data['last_contact_date'] = last_contact_date
+            else:
+                validated_data['last_contact_date'] = data['last_contact_date']
+
+        # Copy other fields (company_id, commercial_id, etc.)
         for key, value in data.items():
-            if key not in validated_data and key not in ['email', 'phone', 'full_name']:
+            if key not in validated_data and key not in ['email', 'phone', 'full_name', 'first_contact_date', 'last_contact_date']:
                 validated_data[key] = value
 
         return validated_data
@@ -393,6 +454,36 @@ class DataService:
                 return None
             validated_data['full_address'] = full_address
 
+        # Date validation
+        if 'start_date' in data:
+            if isinstance(data['start_date'], str):
+                start_date = self.normalized_date(data['start_date'])
+                if not start_date:
+                    if self.view:
+                        self.view.error_message("Invalid start date format")
+                    return None
+                validated_data['start_date'] = start_date
+            else:
+                validated_data['start_date'] = data['start_date']
+
+        if 'end_date' in data:
+            if isinstance(data['end_date'], str):
+                end_date = self.normalized_date(data['end_date'])
+                if not end_date:
+                    if self.view:
+                        self.view.error_message("Invalid end date format")
+                    return None
+                validated_data['end_date'] = end_date
+            else:
+                validated_data['end_date'] = data['end_date']
+
+        # Validate that end_date > start_date if both are provided
+        if 'start_date' in validated_data and 'end_date' in validated_data:
+            if validated_data['end_date'] <= validated_data['start_date']:
+                if self.view:
+                    self.view.error_message("End date must be after start date")
+                return None
+
         # Participant count validation
         if 'participant_count' in data:
             try:
@@ -412,9 +503,9 @@ class DataService:
             notes = self.normalized_free_text(data['notes'])
             validated_data['notes'] = notes
 
-        # Copy other fields (dates, IDs, etc.)
+        # Copy other fields (IDs, etc.)
         for key, value in data.items():
-            if key not in validated_data and key not in ['title', 'full_address', 'participant_count', 'notes']:
+            if key not in validated_data and key not in ['title', 'full_address', 'start_date', 'end_date', 'participant_count', 'notes']:
                 validated_data[key] = value
 
         return validated_data
