@@ -10,36 +10,36 @@ ORDERED_DEFAULT_ROLES: list[str] = ["management", "commercial", "support"]
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "support": [
-        # Support peut lister et voir toutes les entités (filtrage dans les managers)
+        # Support can list and view all entities (filtering applied in managers)
         "client:list", "client:view",
         "contract:list", "contract:view",
         "event:list", "event:view", "event:update:assigned",
         "company:list", "company:view",
-        # Permissions spécialisées conservées pour compatibilité
+        # Specialized permissions kept for compatibility
         "client:view:assigned_events", "contract:view:assigned_events",
         "event:list:assigned", "event:view:assigned",
         "company:view:assigned_events",
     ],
     "commercial": [
-        # Accès complet aux propres clients, contrats et événements + création companies
+        # Full access to own clients, contracts and events + company creation
         "client:list", "client:view", "client:create", "client:update:own", "client:delete:own",
         "contract:list", "contract:view", "contract:create", "contract:update:own",
         "event:list", "event:view", "event:create:own_client",
         "company:list", "company:view", "company:create",
     ],
     "management": [
-        # Gestion des utilisateurs et supervision générale
+        # User management and general supervision
         "user:list", "user:view", "user:create", "user:update", "user:delete",
         "role:list", "role:view", "role:assign",
-        # Supervision clients (lecture seule - pas de modification des relations commerciales)
+        # Client supervision (read-only - no modification of commercial relationships)
         "client:list", "client:view",
-        # Gestion contrats avec contraintes (client-commercial déjà liés)
+        # Contract management with constraints (client-commercial already linked)
         "contract:list", "contract:view", "contract:create:existing_relation",
         "contract:update", "contract:delete",
-        # Gestion événements avec contraintes (contrat signé uniquement)
+        # Event management with constraints (signed contract only)
         "event:list", "event:view", "event:create:signed_contract",
         "event:update", "event:delete", "event:assign_support",
-        # Gestion complète des entreprises
+        # Complete company management
         "company:list", "company:view", "company:create", "company:update", "company:delete"
     ],
 }

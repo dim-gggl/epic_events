@@ -64,8 +64,6 @@ class ClientManager(EntityManager):
         super().__init__(Client)
 
     def create(self, data: dict, user_id: int) -> Client:
-        # Permission validation done by @require_permission("client:create") decorator
-        # Seuls les commerciaux ont cette permission dans DEFAULT_ROLE_PERMISSIONS
         data['commercial_id'] = user_id
         return super().create(data)
 
@@ -78,7 +76,7 @@ class ClientManager(EntityManager):
             if filtered:
                 stmt = stmt.where(self.entity.commercial_id == user_id)
 
-            # Support ne peut voir que les clients liés à ses événements assignés
+            # Support can only view clients linked to their assigned events
             elif user_role == UserRoles.SUPPORT:
                 from src.crm.models import Contract, Event
                 stmt = (stmt.join(Contract)
@@ -100,7 +98,7 @@ class ClientManager(EntityManager):
             return None
 
         user_role = get_user_role_name_from_token()
-        # Support ne peut voir que les clients liés à ses événements assignés
+        # Support can only view clients linked to their assigned events
         if user_role == UserRoles.SUPPORT:
             from src.auth.jwt.token_storage import get_user_info_from_token
             from src.crm.models import Contract, Event
@@ -129,8 +127,6 @@ class ClientManager(EntityManager):
             if not client:
                 return None
 
-            # Base permission validation by
-			# @require_permission("client:update:own")
             # Only business logic validation: commercials
 			# can only update own clients
             user_role = get_user_role_name_from_token()
@@ -226,7 +222,7 @@ class ContractManager(EntityManager):
             if filtered:
                 stmt = stmt.join(Client).where(Client.commercial_id == user_id)
 
-            # Support ne peut voir que les contrats liés à ses événements assignés
+            # Support can only view contracts linked to their assigned events
             elif user_role == UserRoles.SUPPORT:
                 from src.crm.models import Event
                 stmt = (stmt.join(Event)
@@ -251,7 +247,7 @@ class ContractManager(EntityManager):
             return None
 
         user_role = get_user_role_name_from_token()
-        # Support ne peut voir que les contrats liés à ses événements assignés
+        # Support can only view contracts linked to their assigned events
         if user_role == UserRoles.SUPPORT:
             current_user_info = get_user_info_from_token()
 
@@ -283,7 +279,7 @@ class ContractManager(EntityManager):
                 if bool_field in data:
                     data[bool_field] = self._coerce_boolean(data[bool_field], bool_field)
 
-            # Filtrer les valeurs None pour éviter d'écraser les champs existants
+            # Filter None values to avoid overwriting existing fields
             for key, value in data.items():
                 if value is not None:
                     setattr(contract, key, value)
@@ -304,13 +300,13 @@ class EventManager(EntityManager):
             if not contract:
                 raise ValueError("Contract not found.")
 
-            # Tous les rôles: le contrat doit être signé
+            # All roles: contract must be signed
             if not contract.is_signed:
                 raise PermissionError("Cannot create an event for an unsigned contract.")
 
-            # Si c'est un manager, validation supplémentaire déjà couverte par contrat signé
+            # For managers, additional validation already covered by signed contract requirement
             if user_role == UserRoles.MANAGEMENT:
-                pass  # Peut créer pour n'importe quel contrat signé
+                pass  # Can create for any signed contract
 
             # Si c'est un commercial, seulement pour ses propres clients
             elif user_role == UserRoles.COMMERCIAL:
@@ -333,9 +329,9 @@ class EventManager(EntityManager):
             if filtered:
                 if user_role == UserRoles.SUPPORT:
                     stmt = stmt.where(self.entity.support_contact_id == user_id)
-                # Autres filtres spécifiques peuvent être ajoutés ici
+                # Other specific filters can be added here
 
-            # Support ne peut voir que les événements qui lui sont assignés (par défaut)
+            # Support can only view events assigned to them (by default)
             elif user_role == UserRoles.SUPPORT:
                 stmt = stmt.where(self.entity.support_contact_id == user_id)
 
@@ -350,8 +346,7 @@ class EventManager(EntityManager):
             if not event:
                 return None
 
-            # Base permission validation by @require_permission decorator
-            # Validation métier spécifique : support ne peut modifier que ses événements assignés
+            # Business logic validation: support can only modify their assigned events
             user_role = get_user_role_name_from_token()
             if (user_role == UserRoles.SUPPORT
                     and event.support_contact_id != current_user['user_id']):
@@ -377,7 +372,7 @@ class EventManager(EntityManager):
             if not support_user:
                 raise ValueError("Support user not found.")
 
-            # Vérifier que l'utilisateur a bien le rôle support
+            # Verify that user has support role
             user_role_name = ROLE_ID_TO_NAME.get(support_user.role_id, 'unknown')
             if user_role_name != UserRoles.SUPPORT:
                 raise ValueError("User must have support role to be assigned to events.")
@@ -399,7 +394,7 @@ class CompanyManager(EntityManager):
     def list(self, user_id: int = None, **kwargs) -> list[Company]:
         user_role = get_user_role_name_from_token()
 
-        # Support ne peut voir que les entreprises liées à ses événements assignés
+        # Support can only view companies linked to their assigned events
         if user_role == UserRoles.SUPPORT and user_id:
             with Session() as session:
                 from src.crm.models import Client, Contract, Event
@@ -410,7 +405,7 @@ class CompanyManager(EntityManager):
                         .where(Event.support_contact_id == user_id))
                 return session.scalars(stmt).all()
 
-        # Pour les autres rôles, utiliser la méthode de base
+        # For other roles, use base method
         return super().list(**kwargs)
 
 user_manager = UserManager()
