@@ -10,7 +10,9 @@ from src.auth.permissions import (
 from src.crm.controllers.base_manager import EntityManager
 from src.crm.models import Client, Company, Contract, Event, Role, User
 from src.data_access.config import Session
+from src.auth.decorators import in_session
 
+session = Session()
 
 class UserManager(EntityManager):
     def __init__(self):
@@ -19,44 +21,47 @@ class UserManager(EntityManager):
     def create(self, data: dict) -> User:
         password = data.get("password")
         if password:
-            data["password_hash"] = hash_password(password)
-            del data["password"]
+            try:
+                data["password_hash"] = hash_password(password)
+                del data["password"]
+            except ValueError as e:
+                print(f"Password validation failed: {str(e)}")
         return super().create(data)
 
     def update(self, id: int, data: dict) -> User | None:
         password = data.get("password")
         if password:
-            data["password_hash"] = hash_password(password)
-            del data["password"]
+            try:
+                data["password_hash"] = hash_password(password)
+                del data["password"]
+            except ValueError as e:
+                raise ValueError(f"Password validation failed: {str(e)}")
         return super().update(id, data)
 
     def list(self,
             management: bool = False,
             commercial: bool = False,
-            support: bool = False,
-            ) -> list[User]:
-
-
+            support: bool = False) -> list[User]:
         users = super().get_list()
-        result = []
+        filtered_users = []
 
         name_to_id = {name: role_id for role_id, name in ROLE_ID_TO_NAME.items()}
 
         if management:
             management_role_id = name_to_id.get(UserRoles.MANAGEMENT)
             if management_role_id:
-                result.extend([user for user in users if user.role_id == management_role_id])
+                filtered_users.extend([user for user in users if user.role_id == management_role_id])
         if commercial:
             commercial_role_id = name_to_id.get(UserRoles.COMMERCIAL)
             if commercial_role_id:
-                result.extend([user for user in users if user.role_id == commercial_role_id])
+                filtered_users.extend([user for user in users if user.role_id == commercial_role_id])
         if support:
             support_role_id = name_to_id.get(UserRoles.SUPPORT)
             if support_role_id:
-                result.extend([user for user in users if user.role_id == support_role_id])
+                filtered_users.extend([user for user in users if user.role_id == support_role_id])
 
         if any([management, commercial, support]):
-            return result
+            return filtered_users
         return users
 
 class ClientManager(EntityManager):
@@ -73,68 +78,47 @@ class ClientManager(EntityManager):
         with Session() as session:
             stmt = select(self.entity)
 
-            if filtered:
+            if filtered and user_role == UserRoles.COMMERCIAL:
                 stmt = stmt.where(self.entity.commercial_id == user_id)
 
-            # Support can only view clients linked to their assigned events
-            elif user_role == UserRoles.SUPPORT:
-                from src.crm.models import Contract, Event
+            # Support can filter clients to only view those linked 
+            # to their assigned events
+            elif filtered and user_role == UserRoles.SUPPORT:
                 stmt = (stmt.join(Contract)
                         .join(Event)
                         .where(Event.support_contact_id == user_id))
 
             return session.scalars(stmt).all()
 
+    @in_session(session)
     def view(self, id: int, session=None) -> Client | None:
-        if session is None:
-            with Session() as session:
-                return self._view_with_support_check(id, session)
-        else:
-            return self._view_with_support_check(id, session)
+        fields = [
+            "id", "full_name", "email", 
+            "phone", "company_id", 
+            "first_contact_date", 
+            "last_contact_date"
+        ]
+        client = self.get_instance(id)
+        return client, fields
 
-    def _view_with_support_check(self, id: int, session) -> Client | None:
-        client = super().get_instance(id, session)
-        if not client:
-            return None
-
-        user_role = get_user_role_name_from_token()
-        # Support can only view clients linked to their assigned events
-        if user_role == UserRoles.SUPPORT:
-            from src.auth.jwt.token_storage import get_user_info_from_token
-            from src.crm.models import Contract, Event
-            current_user_info = get_user_info_from_token()
-
-            assigned_client_exists = session.query(
-                session.query(Client).join(Contract).join(Event)
-                .filter(Client.id == id)
-                .filter(Event.support_contact_id == current_user_info['user_id'])
-                .exists()
-            ).scalar()
-
-            if not assigned_client_exists:
-                raise PermissionError(
-					"You can only view clients related to your assigned events."
-				)
-
-        return client
-
+    @in_session(session)
     def update(self,
               id: int,
               data: dict,
               current_user: dict) -> Client | None:
-        with Session() as session:
-            client = self.get_instance(id, session)
+        
+            client = self.get_instance(id)
             if not client:
                 return None
 
             # Only business logic validation: commercials
-			# can only update own clients
+            # can only update own clients
             user_role = get_user_role_name_from_token()
             if (user_role == UserRoles.COMMERCIAL
                     and client.commercial_id != current_user['user_id']):
                 raise PermissionError(
-					"Commercial users can only update their own clients."
-				)
+                    "Commercial users can only update their own clients."
+                )
 
             for key, value in data.items():
                 if value is not None:
@@ -318,9 +302,9 @@ class EventManager(EntityManager):
         return super().create(data)
 
     def list(self,
-        	user_id: int,
-        	filtered: bool = False,
-        	unassigned_only: bool = False) -> list[Event]:
+            user_id: int,
+            filtered: bool = False,
+            unassigned_only: bool = False) -> list[Event]:
         user_role = get_user_role_name_from_token()
 
         with Session() as session:

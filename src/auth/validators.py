@@ -4,24 +4,17 @@ from sqlalchemy import select
 
 from src.auth.settings import (
     PASSWORD_MAX_LENGTH as pwd_max_lgt,
-)
-from src.auth.settings import (
     PASSWORD_MIN_LENGTH as pwd_min_lgt,
-)
-from src.auth.settings import (
     ROLE_MAX_ID as role_id_max,
-)
-from src.auth.settings import (
     ROLE_MIN_ID as role_id_min,
-)
-from src.auth.settings import (
     USERNAME_MAX_LENGTH as username_max_lgt,
-)
-from src.auth.settings import (
     USERNAME_MIN_LENGTH as username_min_lgt,
 )
+from src.auth.decorators import in_session
 from src.crm.models import User, Client
 from src.data_access.config import Session
+
+session = Session()
 
 __all__ = ["is_valid_email", "is_valid_username", "is_valid_password",
            "is_valid_role_id", "is_valid_phone", "is_email_globally_unique",
@@ -41,13 +34,10 @@ def _validate_username_length(username: str) -> bool:
     """Validate that a username is between 5 and 64 characters long."""
     return  username_min_lgt <= len(username) <= username_max_lgt
 
-
+@in_session(session)
 def _validate_username_uniqueness(username: str) -> bool:
     """Validate that a username is not already in the database."""
-    with Session() as session:
-        return not session.scalar(
-            select(User).filter(User.username == username)
-        )
+    return not session.query(User).filter(User.username == username)
 
 
 def is_valid_username(username: str) -> bool:
@@ -100,32 +90,32 @@ def is_valid_phone(phone: str) -> bool:
 
     try:
         parsed = phonenumbers.parse(normalized)
+        return phonenumbers.is_valid_number(parsed)
     except Exception as e:
         print(e)
         return False
-    return phonenumbers.is_valid_number(parsed)
+    
 
 
 # Global uniqueness validators across all entities
-
+@in_session(session)
 def is_email_globally_unique(email: str, exclude_user_id: int = None, exclude_client_id: int = None) -> bool:
     """Validate that an email is not already used by any User or Client."""
-    with Session() as session:
-        # Check Users table
-        user_query = select(User).filter(User.email == email)
-        if exclude_user_id:
-            user_query = user_query.filter(User.id != exclude_user_id)
-        if session.scalar(user_query):
-            return False
+    # Check Users table
+    user_query = select(User).filter(User.email == email)
+    if exclude_user_id:
+        user_query = user_query.filter(User.id != exclude_user_id)
+    if session.scalar(user_query):
+        return False
 
-        # Check Clients table
-        client_query = select(Client).filter(Client.email == email)
-        if exclude_client_id:
-            client_query = client_query.filter(Client.id != exclude_client_id)
-        if session.scalar(client_query):
-            return False
+    # Check Clients table
+    client_query = select(Client).filter(Client.email == email)
+    if exclude_client_id:
+        client_query = client_query.filter(Client.id != exclude_client_id)
+    if session.scalar(client_query):
+        return False
 
-        return True
+    return True
 
 
 def is_phone_globally_unique(phone: str, exclude_client_id: int = None) -> bool:

@@ -47,6 +47,21 @@ REFRESH_TOKEN_LIFETIME_DAYS = os.environ.get(
     "REFRESH_TOKEN_LIFETIME_DAYS", 1
 )
 
+# By default username is accepted to be between 5 and 64 characters long
+USERNAME_MIN_LENGTH = os.environ.get("USERNAME_MIN_LENGTH", 5)
+USERNAME_MAX_LENGTH = os.environ.get("USERNAME_MAX_LENGTH", 64)
+
+# Password is accepted to be between 8 and 128 characters long
+PASSWORD_MIN_LENGTH = os.environ.get("PASSWORD_MIN_LENGTH", 8)
+PASSWORD_MAX_LENGTH = os.environ.get("PASSWORD_MAX_LENGTH", 128)
+
+# Initially the role ids were set 1, 2 and 3. Since the database
+# had to be modified and some migrations were necessary since then,
+# the role ids are now set to 1 to 9.
+ROLE_MIN_ID = os.environ.get("ROLE_MIN_ID", 1)
+ROLE_MAX_ID = os.environ.get("ROLE_MAX_ID", 9)
+
+
 # --- JWT key rollover support ---
 # We support a current key (identified by JWT_KID, default
 # 'v1') and an optional previous key (SECRET_KEY_PREV) to

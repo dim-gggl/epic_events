@@ -61,13 +61,13 @@ class EntityManager(Manager):
         session.refresh(new_instance)
         return new_instance
 
-    @in_session(session)
+    @in_session(session=session)
     @login_required
     def get_list(self):
         return session.query(self.entity).all()
 
-    @in_session(session)
-    def get_instance(self, id: int, session: Session = None):
+    @in_session(session=session)
+    def get_instance(self, id: int):
         """
         View an instance of the entity by its id.
 
@@ -80,7 +80,29 @@ class EntityManager(Manager):
         """
         return session.query(self.entity).filter(self.entity.id == id).first()
 
-    @in_session(session)
+    @in_session(session=session)
+    def view(self, id: int):
+        """
+        Get an entity instance and its fields for display.
+
+        Argument:
+            - id: int. Required. The id of the wanted instance.
+
+        Returns:
+            Tuple of (entity instance, list of field names) or (None, []) if not found.
+        """
+        entity = self.get_instance(id)
+        if not entity:
+            return None, []
+
+        # Get all column names from the entity
+        from sqlalchemy import inspect
+        mapper = inspect(self.entity)
+        fields = [column.name for column in mapper.columns]
+
+        return entity, fields
+
+    @in_session(session=session)
     def get_by_id(self, id: int):
         """
         Get an instance of the entity by its id.

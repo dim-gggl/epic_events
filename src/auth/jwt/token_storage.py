@@ -7,56 +7,65 @@ from typing import Any
 from src.crm.views.views import view
 from src.settings import TEMP_FILE_PATH
 
-# If not assigned, TEMP_FILE_PATH is set to None. In this case,
-# the temporary file is created in the system folder.
-_auth_location: str | None = TEMP_FILE_PATH
-
 
 def _get_auth_location() -> str:
-    """Get or create the temporary token file path."""
-    global _auth_location
-    if not _auth_location:
-        temp_dir = tempfile.gettempdir()
-        _auth_location = os.path.join(temp_dir,
-                                      'epic_events_session.jwt')
-    return _auth_location
+    """
+	Return the token storage file path, defaulting 
+	to system temp.
+	"""
+    if TEMP_FILE_PATH:
+        return TEMP_FILE_PATH
+    temp_dir = tempfile.gettempdir()
+    return os.path.join(temp_dir, "epic_events_session.jwt")
 
 
 def store_token(access_token: str,
                 refresh_token: str,
                 refresh_expiry: datetime,
                 user_id: int,
-                role_id: int) -> None:
+                role_id: int) -> bool:
     """
     Store JWT tokens and user info in a temporary file.
-    
+
     Args:
         access_token: JWT access token
         refresh_token: Raw refresh token
         refresh_expiry: Refresh token expiration datetime
         user_id: User ID
         role_id: User role ID
+
+    Returns:
+        bool: True if the token bundle was stored 
+		successfully, False otherwise.
     """
     token_data = {
-        'access_token': access_token,
-        'refresh_token': refresh_token,
-        'refresh_expiry': refresh_expiry.isoformat(),
-        'user_id': user_id,
-        'role_id': role_id,
-        'stored_at': datetime.now(UTC).isoformat()
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "refresh_expiry": refresh_expiry.isoformat(),
+        "user_id": user_id,
+        "role_id": role_id,
+        "stored_at": datetime.now(UTC).isoformat()
     }
 
     try:
         token_file = _get_auth_location()
-        with open(token_file, 'w') as f:
-            json.dump(token_data, f, ensure_ascii=True, indent=4)
-        # Set restrictive file permissions (owner only)
-        os.chmod(token_file, 0o700)
+        directory = os.path.dirname(token_file)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+
+        payload = json.dumps(token_data, ensure_ascii=True, indent=4)
+        with open(token_file, "w", encoding="utf-8") as file_handle:
+            file_handle.write(payload)
+
+        # Set restrictive file permissions 
+		# (read/write for owner and read-only
+		# for group and others)
+        os.chmod(token_file, 0o644)
         return True
 
-    except Exception as e:
+    except Exception as exc:
         view.wrong_message(
-            f"Failed to store authentication tokens: {str(e)}"
+            f"Failed to store authentication tokens: {str(exc)}"
         )
         return False
 
@@ -80,13 +89,13 @@ def get_stored_token() -> dict[str, Any] | None:
             cleanup_token_file()
             return None
         return token_data
-    except json.JSONDecodeError as e:
-        view.wrong_message(f"Decode error: {e}")
+    except json.JSONDecodeError as exc:
+        view.wrong_message(f"Decode error: {exc}")
         cleanup_token_file()
         return None
-    except Exception as e:
+    except Exception as exc:
         view.wrong_message(
-            f"Failed to read authentication tokens: {str(e)}")
+            f"Failed to read authentication tokens: {str(exc)}")
         return None
 
 def get_access_token() -> str | None:
@@ -98,7 +107,7 @@ def get_access_token() -> str | None:
     """
     token_data = get_stored_token()
     if token_data:
-        return token_data.get('access_token')
+        return token_data.get("access_token")
     return
 
 def get_user_info_from_token() -> dict[str, Any] | None:
@@ -111,19 +120,32 @@ def get_user_info_from_token() -> dict[str, Any] | None:
     token_data = get_stored_token()
     if token_data:
         return {
-            'user_id': token_data.get('user_id'),
-            'role_id': token_data.get('role_id')
+            "user_id": token_data.get("user_id"),
+            "role_id": token_data.get("role_id")
         }
     return None
 
 
-def cleanup_token_file() -> None:
-    """Remove the temporary token file."""
+def cleanup_token_file(raise_on_error: bool = False) -> None:
+    """Remove the temporary token file.
+
+    Args:
+        raise_on_error: When True, re-raise file system errors so callers can
+            handle them explicitly (used during logout to surface issues).
+    """
     token_file_path = _get_auth_location()
-    if os.path.exists(token_file_path):
-        os.remove(token_file_path)
-    else:
+    if not os.path.exists(token_file_path):
         view.display_message("No token stored in the file")
+        return
+
+    try:
+        os.remove(token_file_path)
+    except OSError as exc:
+        if raise_on_error:
+            raise
+        view.wrong_message(
+            f"Could not remove authentication token file: {exc}"
+        )
 
 
 def update_access_token(new_access_token: str) -> None:
@@ -135,18 +157,18 @@ def update_access_token(new_access_token: str) -> None:
     """
     token_data = get_stored_token()
     if token_data:
-        token_data['access_token'] = new_access_token
-        token_data['stored_at'] = datetime.now(UTC).isoformat()
+        token_data["access_token"] = new_access_token
+        token_data["stored_at"] = datetime.now(UTC).isoformat()
         # Ensure datetime fields are serialized correctly
-        if isinstance(token_data.get('refresh_expiry'), datetime):
-            token_data['refresh_expiry'] = token_data['refresh_expiry'].isoformat()
-        if isinstance(token_data.get('stored_at'), datetime):
-            token_data['stored_at'] = token_data['stored_at'].isoformat()
+        if isinstance(token_data.get("refresh_expiry"), datetime):
+            token_data["refresh_expiry"] = token_data["refresh_expiry"].isoformat()
+        if isinstance(token_data.get("stored_at"), datetime):
+            token_data["stored_at"] = token_data["stored_at"].isoformat()
 
         try:
             token_file = _get_auth_location()
-            with open(token_file, 'w') as f:
-                json.dump(token_data, f)
-        except Exception as e:
-            view.wrong_message(f"Failed to update access token: {str(e)}")
-            raise
+            payload = json.dumps(token_data, ensure_ascii=True, indent=4)
+            with open(token_file, "w", encoding="utf-8") as file_handle:
+                file_handle.write(payload)
+        except Exception as exc:
+            view.wrong_message(f"Failed to update access token: {str(exc)}")

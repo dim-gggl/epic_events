@@ -1,7 +1,9 @@
 from functools import wraps
 
-from src.auth.jwt.token_storage import get_access_token
+from src.auth.jwt.token_storage import get_access_token, get_stored_token
 from src.auth.jwt.verify_token import verify_access_token
+from collections.abc import Sequence
+
 from src.crm.models import Role
 from src.data_access.config import Session
 
@@ -61,14 +63,26 @@ def get_user_role_name_from_token() -> str:
     Returns:
         str: Role name ('management', 'commercial', 'support') or 'unknown'
     """
+    stored_token = get_stored_token()
+    if stored_token:
+        role_id_raw = stored_token.get('role_id')
+        try:
+            role_id = int(role_id_raw) if role_id_raw is not None else None
+        except (TypeError, ValueError):
+            role_id = None
+
+        if role_id is not None:
+            role_name = ROLE_ID_TO_NAME.get(role_id)
+            if role_name:
+                return role_name
+
     access_token = get_access_token()
     if not access_token:
         return 'unknown'
 
     try:
-        user_id, role_id = get_user_id_and_role_from_token(access_token)
-        role_name = ROLE_ID_TO_NAME.get(role_id, 'unknown')
-        return role_name
+        _, role_id = get_user_id_and_role_from_token(access_token)
+        return ROLE_ID_TO_NAME.get(role_id, 'unknown')
     except Exception:
         return 'unknown'
 
@@ -83,16 +97,23 @@ def get_user_id_and_role_from_token(access_token: str) -> tuple[int, int]:
 def _permissions_from_db(role_id: int) -> list[str] | None:
     try:
         with Session() as session:
-            role = session.query(Role).filter(Role.id == role_id).first()
+            role = session.get(Role, role_id)
             if not role:
-                return
-            if getattr(role, "permissions_rel", None):
-                return [p.name for p in role.permissions_rel]
-            if getattr(role, "permissions", None):
-                return list(role.permissions)
+                return None
+
+            permissions_rel = getattr(role, "permissions_rel", None)
+            if isinstance(permissions_rel, Sequence):
+                collected = [p.name for p in permissions_rel if getattr(p, "name", None)]
+                if collected:
+                    return collected
+
+            permissions = getattr(role, "permissions", None)
+            if isinstance(permissions, Sequence) and not isinstance(permissions, (str, bytes)):
+                return list(permissions)
+
+            return []
     except Exception:
         return None
-    return None
 
 
 def has_permission(access_token: str, required_permission: str) -> bool:
@@ -116,63 +137,74 @@ def _check_permission_match(required: str, available_permissions: list[str]) -> 
     Supports both exact matches and wildcard matching for specialized permissions.
 
     Examples:
-    - required="client:update", available=["client:update:own"] -> True (specialized covers general)
-    - required="client:update:own", available=["client:update"] -> True (general covers specialized)
-    - required="client:update:other", available=["client:update:own"]
+    - required="client:update", 
+        available=["client:update:own"] -> True (specialized covers general)
+    - required="client:update:own", 
+        available=["client:update"] -> True (general covers specialized)
+    - required="client:update:other", 
+    available=["client:update:own"]
       -> False (different specializations)
     """
     # Direct match
     if required in available_permissions:
         return True
 
-    # Check if a specialized permission covers the general permission
     required_parts = required.split(':')
-    if len(required_parts) >= 2:
-        base_permission = ':'.join(required_parts[:2])  # "client:update"
 
-        # If asking for general permission, check if any specialized version is available
-        if len(required_parts) == 2:  # General permission like "client:update"
-            specialized_perms = [
-                p for p in available_permissions
-                if p.startswith(base_permission + ':')
-            ]
-            return len(specialized_perms) > 0
+    # Specialized permission request (e.g., client:update:own) can be satisfied by general grants
+    if len(required_parts) >= 3:
+        general_permission = ':'.join(required_parts[:2])
+        return general_permission in available_permissions
 
-        # If asking for specialized permission, check if general permission is available
-        else:  # Specialized permission like "client:update:own"
-            return base_permission in available_permissions
-
+    # General permission requests must be granted explicitly to avoid privilege escalation
     return False
 
 # Decorators
 def login_required(func):
+    """
+    Decorator to ensure the function is only executed if the user is logged in.
+    Must be used on all CRUD methods of the CRM to ensure Anonymous User cannot 
+    access any data.
+
+    Raises:
+        - PermissionError: if the user is not logged in.
+        - Exception: such as InvalidTokenError or ExpiredTokenError (e. g. when 
+        calling verify_access_token)
+        """
     @wraps(func)
     def wrapper(*args, **kwargs):
         # For class methods, access_token is the second argument (after self)
         token = get_access_token()
         if not token:
-            raise PermissionError("You must sign in to continue")
+            raise PermissionError("Authentication required")
         try:
             verify_access_token(token)
             return func(*args, **kwargs)
-        except Exception as token_error:
-            raise PermissionError(f"{token_error}")
+        except Exception:
+            raise PermissionError("Authentication required")
     return wrapper
 
 def require_permission(permission: str):
+    """
+    Decorator to ensure the function is only executed if the user has the required 
+    permission.
+    Must be used on all CRUD methods of the CRM to ensure users cannot access data 
+    they are not authorized to.
+
+    Raises:
+        - PermissionError: if the user is not logged in.
+        - Exception: such as InvalidTokenError or ExpiredTokenError (e. g. when 
+        calling verify_access_token)
+    """
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             access_token = get_access_token()
             if not access_token:
-                raise PermissionError("Access token not found in function arguments")
+                raise PermissionError("Authentication required")
 
             if not has_permission(access_token, permission):
-                raise PermissionError(
-                    f"You don't have permission to "
-                    f"{permission.split(':')[1]} {permission.split(':')[0]}"
-                )
+                raise PermissionError("Permission denied")
             return func(*args, **kwargs)
         return wrapper
     return decorator
-

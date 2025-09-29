@@ -28,7 +28,11 @@ def init_manager(username: str | None=None,
     email = data_service.treat_email_from_input(email)
     password = data_service.treat_password_from_input(confirm=True)
 
-    password_hash = hash_password(password)
+    try:
+        password_hash = hash_password(password)
+    except ValueError as e:
+        view.error_message(f"Password error: {str(e)}")
+        return
 
     with Session() as session:
         role = session.scalar(select(Role).where(Role.name == "management"))

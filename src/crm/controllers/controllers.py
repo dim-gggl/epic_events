@@ -21,25 +21,25 @@ helper_view = HelperView()
 
 
 class Controller(ABC):
-	@abstractmethod
-	def create(self, *args, **kwargs):
-		pass
+    @abstractmethod
+    def create(self, *args, **kwargs):
+        pass
 
-	@abstractmethod
-	def get_list(self, *args, **kwargs):
-		pass
+    @abstractmethod
+    def get_list(self, *args, **kwargs):
+        pass
 
-	@abstractmethod
-	def view(self, *args, **kwargs):
-		pass
+    @abstractmethod
+    def view(self, *args, **kwargs):
+        pass
 
-	@abstractmethod
-	def update(self, *args, **kwargs):
-		pass
+    @abstractmethod
+    def update(self, *args, **kwargs):
+        pass
 
-	@abstractmethod
-	def delete(self, *args, **kwargs):
-		pass
+    @abstractmethod
+    def delete(self, *args, **kwargs):
+        pass
 
 class EntityController(Controller):
     """
@@ -50,15 +50,15 @@ class EntityController(Controller):
 
     params:
         - entity: class [User | Client | Contract | Event | Company]
-        	Represents the class of the objects this controller is organizing.
+            Represents the class of the objects this controller is organizing.
         - fields: list[str]
-        	Represents the list of attributes that must be displayed when we call
-        	for list or view on self.entity.
+            Represents the list of attributes that must be displayed when we call
+            for list or view on self.entity.
         - entity_name: str.
-        	A lower-case string version of the name of the class of self.entity
+            A lower-case string version of the name of the class of self.entity
         - manager: EntityManager
-        	Represents an instance of manager pointing towards the same model
-        	that will handle the moves from the business logic side.
+            Represents an instance of manager pointing towards the same model
+            that will handle the moves from the business logic side.
         
     """
     def __init__(self, entity: type, fields: list[str] | None=None):
@@ -80,15 +80,15 @@ class EntityController(Controller):
 
         for column in mapper.columns:
             # Skip auto-generated fields (primary keys with autoincrement,
-			# timestamps with server_default)
+            # timestamps with server_default)
             # But include user-input fields that are nullable=False
             if (column.nullable is False
-			and not (column.primary_key and column.autoincrement)
-			and not column.server_default
-			and column.name not in ['id',
-									'created_at',
-									'updated_at',
-									'commercial_id']):
+            and not (column.primary_key and column.autoincrement)
+            and not column.server_default
+            and column.name not in ['id',
+                                    'created_at',
+                                    'updated_at',
+                                    'commercial_id']):
                 required_fields.append(column.name)
         return required_fields
 
@@ -152,7 +152,7 @@ class EntityController(Controller):
             else:
                 view.error_message(
                     f"Argument '{arg}' does not match "
-					f"any field in {self.entity_name}."
+                    f"any field in {self.entity_name}."
                 )
 
         # Prompt user for any missing required fields
@@ -216,9 +216,11 @@ class EntityController(Controller):
 
     @in_session(session)
     def view(self, id: int, fields: list[str]=None):
-        obj = self.manager.get_instance(id)
+        obj, all_fields = self.manager.view(id)
+        if not fields:
+            fields = all_fields
         if obj:
-            view.display_details(obj, fields or self.fields)
+            view.display_details(obj, fields)
         else:
             view.wrong_message(f"{self.entity_name} with id {id} not found.")
 
@@ -237,7 +239,7 @@ class EntityController(Controller):
 
         fields = fields or self.fields
         for k, v in validated_data.items():
-            if k in fields and v is not None:
+            if k in fields and v:
                 setattr(entity, k, v)
         session.add(entity)
         session.commit()

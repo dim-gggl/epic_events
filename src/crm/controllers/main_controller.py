@@ -163,7 +163,12 @@ class MainController:
             data["role_id"] = role_id
         else:
             data["role_id"] = self.view.get_role_id()
-        data["password_hash"] = hash_password(self.view.get_password())
+        try:
+            password = self.view.get_password()
+            data["password_hash"] = hash_password(password)
+        except ValueError as e:
+            self.view.error_message(f"Password error: {str(e)}")
+            return
         try:
             user = self.user_c.manager.create(data)
             self.view.display_user(user)

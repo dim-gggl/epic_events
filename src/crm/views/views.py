@@ -516,7 +516,7 @@ class MainView:
         logo.stylize(epic_style, 0, 145)
         logo.stylize(logo_style, 145, 147)
         logo.stylize(epic_style, 147, 176)
-        logo.stylize(logo_style, 176, 190)
+        logo.stylize(logo_style, 176, 191)
         logo.stylize(epic_style, 191, 194)
         logo.stylize(logo_style, 194, 221)
         logo.stylize(epic_style, 222, 225)

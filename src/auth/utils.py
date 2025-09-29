@@ -1,15 +1,12 @@
 import ctypes
 import os
 
-from rich.console import Console
-
-console = Console()
-print = console.print
+from src.crm.views.views import view
 
 def get_secret_key() -> str:
     value = os.environ.get("SECRET_KEY")
     if not value:
-        print("[red]SECRET_KEY is not set[/red]")
+        view.wrong_message("SECRET_KEY is not set")
     return value
 
 
@@ -29,11 +26,11 @@ def _ensure_root() -> bool:
             is_admin = False
 
         if not is_admin:
-            print("[red]This command must be run as root.[/red]")
+            view.wrong_message("This command must be run as root.")
             return False
         return True
     else:
         if os.geteuid() != 0:
-            print("[red]This command must be run with root privileges.[/red]")
+            view.wrong_message("This command must be run with root privileges.")
             return False
         return True

@@ -81,7 +81,12 @@ def refresh_tokens() -> tuple[str, str, datetime.datetime] | None:
         user.refresh_token_hash = new_refresh_hash.decode("utf-8")
         session.commit()
 
-        # Persist session file with new values
-        store_token(access_token, new_raw_refresh, new_refresh_exp, user.id, user.role_id)
+        # Persist session file 
+		# with new values
+        store_token(access_token, 
+					new_raw_refresh, 
+					new_refresh_exp, 
+					user.id, 
+					user.role_id)
         view.success_message("Session refreshed and rotated successfully.")
         return access_token, new_raw_refresh, new_refresh_exp

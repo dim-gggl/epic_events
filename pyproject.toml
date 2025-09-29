@@ -34,3 +34,12 @@ ignore = []
 [tool.ruff.lint.isort]
 known-first-party = ["epic_events"]
 force-single-line = false
+
+[tool.pytest.ini_options]
+addopts = "-v --tb=short"
+pythonpath = ["."]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "security: marks tests as security-focused tests"
+]
