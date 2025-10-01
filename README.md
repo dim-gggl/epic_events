@@ -80,11 +80,22 @@ Epic Events est une application en ligne de commande (CLI) conçue pour gérer l
 Pour des instructions complètes, veuillez consulter la section [INSTALLATION](INSTALLATION.md#installation).
 
 1.  **Installez les prérequis** (Python, `uv`, PostgreSQL).
-2.  **Clonez le dépôt** et naviguez dans le dossier.
-3.  **Créez et activez un environnement virtuel** avec `uv`.
-4.  **Installez les dépendances** : `uv pip install -e .`
+2.  **Clonez le dépôt** et naviguez dans le dossier:
+```bash
+git clone https://github.com/dim-gggl/epic_events.git
+cd epic_events
+```
+3.  **Créez et activez un environnement virtuel** 
+  - avec `uv`:
+    `uv init && uv venv`  
+  - avec `venv`:
+    `python3 -m venv .venv && source .venv/bin/activate`
+4.  **Installez les dépendances** : 
+  `uv pip install -e .` 
+  ou 
+  `pip install -e .`
 5.  **Configurez votre base de données** en créant un fichier `.env`.
-6.  **Initialisez la base de données** : `python epic_events.py db-create`
+6.  **Initialisez la base de données** : `python3 epic_events.py db-create`
 7.  **Créez l'utilisateur manager** : `sudo python epic_events.py manager-create -u admin -n "Admin User" -e admin@ex.com`
 	> _`sudo` vous demandera d'entrer votre mot de passe admin, puis `epic-events` vous dermandera d'entrer le mot de passe de l'utilisateur manager en cours d'inscription (tous les autres paramètres ayant été passé en arguments en ligne de commande)._
 8.  **Connectez-vous** : `python epic_events.py login -u admin`

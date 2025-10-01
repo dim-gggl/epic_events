@@ -35,3 +35,6 @@ class InvalidPasswordError(EpicEventsError):
 
 class ExpiredTokenError(EpicEventsError):
     alert = "EXPIRED TOKEN"
+
+class TokenFileNotFoundError(EpicEventsError):
+    alert = "TOKEN FILE NOT FOUND"

@@ -32,6 +32,7 @@ class AuthController:
         # file where it is stored
         token = get_access_token()
         try:
+
             # If token is present in the file, check
             # the information within
             payload = verify_access_token(token)
@@ -41,6 +42,7 @@ class AuthController:
         # exceptions messages
         except InvalidTokenError as e:
             view.wrong_message(e)
+
         except ExpiredTokenError as er:
             view.wrong_message(er)
 

@@ -4,6 +4,7 @@ from src.auth.jwt.token_storage import (
 )
 from src.crm.views.views import MainView
 from src.data_access.config import Session
+from src.crm.models import User
 
 view = MainView()
 
@@ -12,18 +13,24 @@ def logout():
     try:
         user_info = get_user_info_from_token()
         if user_info:
-            # Clear user's refresh token in database
-            from src.crm.models import User
+            # Clear user"s refresh token in database
             try:
                 with Session() as session:
-                    user = session.get(User, user_info['user_id'])
+                    user = session.query(User).filter(
+                        User.id == user_info["id"]
+                    ).first()
+
                     if user:
                         user.refresh_token_hash = None
                         session.commit()
-            except Exception:
-                pass  # Ignore database errors during logout
-    except Exception:
-        pass  # Ignore token errors during logout
+     
+            except Exception as e:
+                view.error_message(f"Database error during logout: {e}")
+                return
+
+    except Exception as err:
+        view.error_message(f"Error during logout: {err}")
+        return
 
     # Always cleanup token file and surface failures to the caller
     try:

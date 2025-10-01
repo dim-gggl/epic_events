@@ -1,5 +1,5 @@
 <a id="installation"></a>
-# Installation du CRM Epic Events
+# 🇫🇷 Installation du CRM Epic Events
 
 Ce guide détaille les étapes pour installer et configurer l'application CRM Epic Events en local.
 
@@ -135,14 +135,22 @@ SECRET_KEY="remplacer_par_une_cle_secrete_forte"
 # Optionnel : DSN pour l'intégration Sentry
 SENTRY_DSN=""
 ```
-> **Astuce** Vous pouvez générer la `SECRET_KEY` sur [ClinKey](https://dim-gggl.github.io/ClinKey/) 
+> **Astuce** Vous pouvez générer la `SECRET_KEY` sur [ClinKey](https://dim-gggl.github.io/ClinKey/)
+> ou la version en ligne de commande :
+```bash
+pip install clinkey-cli
+export SECRET_KEY=$(clinkey -l 128 -t strong -n 1)
+echo 'SECRET_KEY=$SECRET_KEY' >> .env
+```
 
 ## 5. Initialisation de l'Application
 
 1. **Créer les tables de la base de données** :
 Cette commande initialise le schéma de la base de données et insère les rôles et permissions par défaut.
 ```bash
-python epev db-create
+uv run epic_events.py db-create
+# or
+# python epic_events.py db-create
 ```
 
 2. **Créer le premier utilisateur (Manager)** :
@@ -175,8 +183,29 @@ Pour voir toutes les commandes disponibles, utilisez l'aide intégrée :
 epev help
 ```
   
+--- 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+  
+  &nbsp;
+    
+  &nbsp;  
+  &nbsp;  
+  &nbsp;  
+  &nbsp;  
+  &nbsp;  
+  &nbsp;  
+
 <a id="setup"></a>
-# Installing the Epic Events CRM
+# 🇬🇧 Installing the Epic Events CRM
 
 This guide details the steps to install and configure the Epic Events CRM application locally.
 

@@ -29,7 +29,6 @@ def is_valid_email(value: str) -> bool:
     except EmailNotValidError:
         return False
 
-
 def _validate_username_length(username: str) -> bool:
     """Validate that a username is between 5 and 64 characters long."""
     return  username_min_lgt <= len(username) <= username_max_lgt
@@ -39,18 +38,15 @@ def _validate_username_uniqueness(username: str) -> bool:
     """Validate that a username is not already in the database."""
     return not session.query(User).filter(User.username == username)
 
-
 def is_valid_username(username: str) -> bool:
     """Validate that a username is valid and not already in use."""
     return _validate_username_length(username) and \
                 _validate_username_uniqueness(username)
 
-
 def _validate_password_length(password: str) -> bool:
     """Validate that a password is between min and max characters long."""
     return bool(len(password) >= pwd_min_lgt and
                 len(password) <= pwd_max_lgt)
-
 
 def _validate_password_complexity(password: str) -> bool:
     """
@@ -63,17 +59,14 @@ def _validate_password_complexity(password: str) -> bool:
         any(char.isdigit() for char in password)
     )
 
-
 def is_valid_password(password: str) -> bool:
     """Validate that a password meets all requirements."""
     return bool(_validate_password_length(password) and
                 _validate_password_complexity(password))
 
-
 def is_valid_role_id(role_id: int) -> bool:
     """Validate that a role id is within valid range."""
     return role_id_min <= int(role_id) <= role_id_max
-
 
 def is_valid_phone(phone: str) -> bool:
     """Validate phone number using phonenumbers library."""
@@ -95,7 +88,6 @@ def is_valid_phone(phone: str) -> bool:
         print(e)
         return False
     
-
 
 # Global uniqueness validators across all entities
 @in_session(session)

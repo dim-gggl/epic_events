@@ -16,9 +16,9 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "client:list", "client:view",
         "contract:list", "contract:view",
         "event:list", "event:view", "event:update:assigned",
-        "company:list", "company:view",
         # Specialized permissions kept for compatibility
         "client:view:assigned_events", "contract:view:assigned_events",
+        "client:view", "client:list", "contract:view", "contract:list",
         "event:list:assigned", "event:view:assigned",
         "company:view:assigned_events",
     ],
@@ -36,7 +36,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         # Client supervision (read-only - no modification of commercial relationships)
         "client:list", "client:view",
         # Contract management with constraints (client-commercial already linked)
-        "contract:list", "contract:view", "contract:create:existing_relation",
+        "contract:list", "contract:view", "contract:create",
         "contract:update", "contract:delete",
         # Event management with constraints (signed contract only)
         "event:list", "event:view", "event:create:signed_contract",
@@ -97,7 +97,7 @@ def get_user_id_and_role_from_token(access_token: str) -> tuple[int, int]:
 def _permissions_from_db(role_id: int) -> list[str] | None:
     try:
         with Session() as session:
-            role = session.get(Role, role_id)
+            role = session.query(Role).filter(Role.id == role_id).first()
             if not role:
                 return None
 
@@ -112,7 +112,8 @@ def _permissions_from_db(role_id: int) -> list[str] | None:
                 return list(permissions)
 
             return []
-    except Exception:
+    except Exception as e:
+        print(f"Error getting permissions from db: {e}")
         return None
 
 

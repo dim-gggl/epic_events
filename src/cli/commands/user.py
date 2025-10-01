@@ -27,7 +27,7 @@ def user_create(username, full_name, email, role_id):
         username=username,
         full_name=full_name,
         email=email,
-        password=None,  # Password will always be prompted securely
+        password=None,
         role_id=role_id,
     )
 

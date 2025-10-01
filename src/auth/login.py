@@ -15,16 +15,20 @@ def login(username: str,
     """
     Authenticate a user and return access and refresh tokens.
 
-    Returns (access_token, raw_refresh, refresh_expiration, refresh_hash).
+    Returns access_token, raw_refresh, refresh_expiration, 
+    refresh_hash.
     Raises InvalidUsernameError or InvalidPasswordError on failure.
     """
     if not username:
         username = view.get_username().strip()
+
     if not password:
         password = view.get_password()
 
     with Session() as session:
-        user = session.query(User).filter(User.username == username).first()
+        user = session.query(User).filter(
+            User.username == username
+        ).first()
 
         if not user:
             view.error_message("Unknown username.")
@@ -34,11 +38,19 @@ def login(username: str,
             view.error_message("Wrong password.")
             return None
 
-        access_token, raw_refresh, refresh_exp, refresh_hash = generate_token(user.id, user.role_id)
+        (access_token, 
+        raw_refresh, 
+        refresh_exp, 
+        refresh_hash) = generate_token(user.id, user.role_id)
 
-        if not store_token(access_token, raw_refresh, refresh_exp, user.id, user.role_id):
+        if not store_token(access_token, 
+                        raw_refresh, 
+                        refresh_exp, 
+                        user.id, 
+                        user.role_id):
             view.error_message(
-                "Unable to persist authentication session. Please try again."
+                "Unable to persist authentication session. "
+                "Please try again."
             )
             return None
 
@@ -46,7 +58,11 @@ def login(username: str,
         user.last_login = datetime.now(UTC)
         session.commit()
 
-        view.success_message(f"Login successful. Connected as {user.username}")
-        view.display_login(access_token, raw_refresh, refresh_exp)
+        view.success_message(
+            "Login successful. "
+            f"Connected as {user.username}")
+        view.display_login(
+            access_token, raw_refresh, refresh_exp
+        )
 
         return access_token, raw_refresh, refresh_exp, refresh_hash

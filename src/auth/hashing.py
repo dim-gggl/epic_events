@@ -21,7 +21,10 @@ def hash_password(password: str) -> str:
 
     # Bcrypt has a 72-byte limit
     if len(password_bytes) > 72:
-        raise ValueError("Password too long for bcrypt (max 72 bytes when UTF-8 encoded)")
+        raise ValueError(
+            "Password too long for bcrypt "
+            "(max 72 bytes when UTF-8 encoded)"
+        )
 
     # Generate a salt
     salt = bcrypt.gensalt()

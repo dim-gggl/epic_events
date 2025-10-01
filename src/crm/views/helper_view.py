@@ -12,9 +12,11 @@ class HelperView:
         view.wrong_message(
             "Password should be :\n"
             "\t- at least 8 characters long\n"
-            "\t- 64 characters maximum one uppercase letter\n"
-            "\tcomposed of at least:\n\t\t- one uppercase letter\n\t\t"
-            "- one lowercase letter\n\t\t- one number"
+            "\t- 64 characters long maximum\n"
+            "\tcomposed of at least:\n"
+            "\t\t- one uppercase letter\n"
+            "\t\t- one lowercase letter\n"
+            "\t\t- one number"
         )
 
     def password_confirmation_helper(self):

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from src.crm.views.views import view
+from src.exceptions import TokenFileNotFoundError
 from src.settings import TEMP_FILE_PATH
 
 
@@ -50,12 +51,11 @@ def store_token(access_token: str,
     try:
         token_file = _get_auth_location()
         directory = os.path.dirname(token_file)
-        if directory:
+        if not directory:
             os.makedirs(directory, exist_ok=True)
 
-        payload = json.dumps(token_data, ensure_ascii=True, indent=4)
         with open(token_file, "w", encoding="utf-8") as file_handle:
-            file_handle.write(payload)
+            json.dump(token_data, file_handle, ensure_ascii=True, indent=4)
 
         # Set restrictive file permissions 
 		# (read/write for owner and read-only
@@ -79,7 +79,7 @@ def get_stored_token() -> dict[str, Any] | None:
     """
     token_file_path = _get_auth_location()
     if not os.path.exists(token_file_path):
-        return None
+        raise TokenFileNotFoundError()
 
     try:
         with open(token_file_path) as f:
@@ -105,10 +105,12 @@ def get_access_token() -> str | None:
     Returns:
         Access token string or None if not available
     """
-    token_data = get_stored_token()
-    if token_data:
+    try:
+        token_data = get_stored_token()
         return token_data.get("access_token")
-    return
+    except TokenFileNotFoundError as e:
+        view.wrong_message(e)
+        return None
 
 def get_user_info_from_token() -> dict[str, Any] | None:
     """
@@ -117,14 +119,15 @@ def get_user_info_from_token() -> dict[str, Any] | None:
     Returns:
         Dict with user_id and role_id or None if not available
     """
-    token_data = get_stored_token()
-    if token_data:
+    try:
+        token_data = get_stored_token()
         return {
             "user_id": token_data.get("user_id"),
             "role_id": token_data.get("role_id")
         }
-    return None
-
+    except TokenFileNotFoundError as e:
+        view.wrong_message(e)
+        return None
 
 def cleanup_token_file(raise_on_error: bool = False) -> None:
     """Remove the temporary token file.
@@ -135,8 +138,7 @@ def cleanup_token_file(raise_on_error: bool = False) -> None:
     """
     token_file_path = _get_auth_location()
     if not os.path.exists(token_file_path):
-        view.display_message("No token stored in the file")
-        return
+        raise TokenFileNotFoundError()
 
     try:
         os.remove(token_file_path)
