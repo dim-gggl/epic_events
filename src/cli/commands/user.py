@@ -69,3 +69,11 @@ def user_update(user_id, username, full_name, email, role_id):
 @click.argument("user_id", type=int)
 def user_delete(user_id):
     main_controller.delete_user(user_id)
+
+
+@epic_help
+@user.command("update-password")
+@click.argument("user_id", type=int)
+def user_update_password(user_id):
+    """Reset a user's password (management only)."""
+    main_controller.reset_user_password(user_id)

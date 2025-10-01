@@ -64,6 +64,40 @@ class UserManager(EntityManager):
             return filtered_users
         return users
 
+    def reset_password(self, user_id: int, new_password: str) -> User | None:
+        """
+        Reset a user's password. Only callable by management role.
+
+        Args:
+            user_id: The ID of the user whose password should be reset
+            new_password: The new password (will be hashed automatically)
+
+        Returns:
+            Updated User object or None if user not found
+
+        Raises:
+            ValueError: If password validation fails
+        """
+        user_role = get_user_role_name_from_token()
+        if user_role != UserRoles.MANAGEMENT:
+            raise PermissionError(
+                "Only management users can reset passwords."
+            )
+
+        with Session() as session:
+            user = session.get(User, user_id)
+            if not user:
+                return None
+
+            try:
+                user.password_hash = hash_password(new_password)
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                return user
+            except ValueError as e:
+                raise ValueError(f"Password validation failed: {str(e)}")
+
 class ClientManager(EntityManager):
     def __init__(self):
         super().__init__(Client)
@@ -218,20 +252,24 @@ class ContractManager(EntityManager):
                 stmt = stmt.where(self.entity.remaining_amount > 0)
             return session.scalars(stmt).all()
 
-    def get_instance(self, id: int, session=None) -> Contract | None:
-        if session is None:
-            with Session() as session:
-                return self._view_with_support_check(id, session)
-        else:
-            return self._view_with_support_check(id, session)
-
-    def _view_with_support_check(self, id: int, session) -> Contract | None:
-        contract = super().get_instance(id, session)
+    @in_session(session)
+    def view(self, id: int, session=None) -> tuple[Contract | None, list[str]]:
+        """
+        Get contract instance with support access control.
+        Returns tuple of (contract, fields) for consistency with EntityManager.view().
+        """
+        fields = [
+            "id", "client_id", "commercial_id",
+            "total_amount", "remaining_amount",
+            "is_signed", "is_fully_paid",
+            "created_at", "updated_at"
+        ]
+        contract = self.get_instance(id)
         if not contract:
-            return None
+            return None, []
 
-        user_role = get_user_role_name_from_token()
         # Support can only view contracts linked to their assigned events
+        user_role = get_user_role_name_from_token()
         if user_role == UserRoles.SUPPORT:
             current_user_info = get_user_info_from_token()
 
@@ -246,6 +284,35 @@ class ContractManager(EntityManager):
                 raise PermissionError(
                     "You can only view contracts related to your assigned events."
                 )
+
+        return contract, fields
+
+    def get_instance(self, id: int, session=None) -> Contract | None:
+        """
+        Get contract instance with support access control for updates/deletes.
+        For view operations, use the view() method instead.
+        """
+        contract = super().get_instance(id)
+        if not contract:
+            return None
+
+        # Support access control for non-view operations
+        user_role = get_user_role_name_from_token()
+        if user_role == UserRoles.SUPPORT:
+            # Support users should not be able to get contracts directly
+            # except through view() which has proper checks
+            with Session() as session:
+                assigned_contract_exists = session.query(
+                    session.query(Contract).join(Event)
+                    .filter(Contract.id == id)
+                    .filter(Event.support_contact_id == get_user_info_from_token()['user_id'])
+                    .exists()
+                ).scalar()
+
+                if not assigned_contract_exists:
+                    raise PermissionError(
+                        "You can only access contracts related to your assigned events."
+                    )
 
         return contract
 

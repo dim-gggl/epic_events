@@ -203,6 +203,32 @@ class MainController:
 
     @handle_permission_errors
     @login_required
+    @require_permission("user:update")
+    def reset_user_password(self, user_id: int):
+        """
+        Reset a user's password. Only accessible to management role.
+        Prompts for new password interactively with confirmation.
+        """
+        # Get new password with confirmation
+        new_password = self.view.get_password_with_confirmation()
+
+        try:
+            # Reset password through UserManager
+            updated_user = self.user_c.manager.reset_password(user_id, new_password)
+
+            if updated_user:
+                self.view.success_message(
+                    f"Password successfully reset for user '{updated_user.username}' (ID: {user_id})"
+                )
+            else:
+                self.view.error_message(f"User with ID {user_id} not found.")
+        except PermissionError as e:
+            self.view.error_message(str(e))
+        except ValueError as e:
+            self.view.error_message(str(e))
+
+    @handle_permission_errors
+    @login_required
     @require_permission("client:create")
     def create_client(self, **kwargs):
         self.client_c.create(**kwargs)
