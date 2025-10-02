@@ -4,7 +4,7 @@ import shutil
 from dotenv import load_dotenv
 
 if not os.path.exists(".env"):
-    shutil.copy(".config", ".env")
+    shutil.copy(".env.example", ".env")
 
 from src.cli.main import cli
 from src.sentry.observability import init_sentry

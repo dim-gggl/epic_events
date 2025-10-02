@@ -15,7 +15,9 @@ POSTGRES_DB=os.environ.get("POSTGRES_DB", "epic_events_db")
 
 DATABASE_URL=os.environ.get(
     "DATABASE_URL",
-    f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    "postgresql+psycopg://"
+    f"{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
 # The secret key for the JWT
